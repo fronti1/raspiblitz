@@ -53,6 +53,9 @@ else
  echo "OK running on $(uname -m) architecture."
 fi
 
+# wait for key
+read -n 1 -s -r -p "Press any key to continue"
+
 # keep in mind that DietPi for Raspberry is also a stripped down Raspbian
 echo "Detect Base Image ..."
 baseImage="?"
