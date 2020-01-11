@@ -359,7 +359,7 @@ to protect the seed words. Most users did not set this.
 
       # trigger wallet recovery
       source /home/admin/python3-env-lnd/bin/activate
-      source <(python /home/admin/config.scripts/lnd.initwallet.py seed ${passwordC} "${wordstring}" ${passwordD})
+      source <(python3 /home/admin/config.scripts/lnd.initwallet.py seed ${passwordC} "${wordstring}" ${passwordD})
 
       # check if wallet was created for real
       if [ ${#err} -eq 0 ]; then
@@ -434,6 +434,7 @@ dialog --pause "  Waiting for LND - please wait .." 8 58 30
 # Copy LND macaroons to admin
 ############################
 
+clear
 echo ""
 echo "*** Copy LND Macaroons to user admin ***"
 macaroonExists=$(sudo -u bitcoin ls -la /home/bitcoin/.lnd/data/chain/${network}/${chain}net/admin.macaroon 2>/dev/null | grep -c admin.macaroon)

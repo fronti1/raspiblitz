@@ -10,6 +10,10 @@ isX86_64=$(uname -m | grep -c 'x86_64')
 isX86_32=$(uname -m | grep -c 'i386\|i486\|i586\|i686\|i786')
 
 # make sure go is installed
+
+# get Go vars - needed if there was no log-out since Go installed
+source /etc/profile
+
 echo "Check Framework: Go"
 goInstalled=$(go version 2>/dev/null | grep -c 'go')
 if [ ${goInstalled} -eq 0 ];then
@@ -29,25 +33,29 @@ if [ ${goInstalled} -eq 0 ];then
   echo "*** Installing Go v${goVersion} for ${goOSversion} ***"
 
   # wget https://storage.googleapis.com/golang/go${goVersion}.linux-${goOSversion}.tar.gz
+  cd /home/admin/download
   wget https://dl.google.com/go/go${goVersion}.linux-${goOSversion}.tar.gz
   if [ ! -f "./go${goVersion}.linux-${goOSversion}.tar.gz" ]
   then
       echo "!!! FAIL !!! Download not success."
+      rm -f go${goVersion}.linux-${goOSversion}.tar.gz*
       exit 1
   fi
   sudo tar -C /usr/local -xzf go${goVersion}.linux-${goOSversion}.tar.gz
-  sudo rm *.gz
+  rm -f go${goVersion}.linux-${goOSversion}.tar.gz*
   sudo mkdir /usr/local/gocode
   sudo chmod 777 /usr/local/gocode
   export GOROOT=/usr/local/go
   export PATH=$PATH:$GOROOT/bin
   export GOPATH=/usr/local/gocode
   export PATH=$PATH:$GOPATH/bin
-  sudo bash -c "echo 'GOROOT=/usr/local/go' >> /etc/profile"
-  sudo bash -c "echo 'PATH=\$PATH:\$GOROOT/bin/' >> /etc/profile"
-  sudo bash -c "echo 'GOPATH=/usr/local/gocode' >> /etc/profile"   
-  sudo bash -c "echo 'PATH=\$PATH:\$GOPATH/bin/' >> /etc/profile"
-  
+  if [ $(cat /etc/profile | grep -c "GOROOT=") -eq 0 ]; then
+    sudo bash -c "echo 'GOROOT=/usr/local/go' >> /etc/profile"
+    sudo bash -c "echo 'PATH=\$PATH:\$GOROOT/bin/' >> /etc/profile"
+    sudo bash -c "echo 'GOPATH=/usr/local/gocode' >> /etc/profile"   
+    sudo bash -c "echo 'PATH=\$PATH:\$GOPATH/bin/' >> /etc/profile"
+  fi
+
   # set GOPATH https://github.com/golang/go/wiki/SettingGOPATH
   go env -w GOPATH=/usr/local/gocode
   

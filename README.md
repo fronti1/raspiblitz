@@ -2,7 +2,7 @@
 
 *Build your own Lightning Node on a RaspberryPi with a nice Display.*
 
-`Version 1.3 with lnd 0.7.1-beta and bitcoin 0.18.1 or litecoin 0.16.3.`
+`Version 1.4RC2 with lnd 0.8.2-beta and bitcoin 0.19.1 or litecoin 0.16.3.`
 
 ![RaspiBlitz](pictures/raspiblitz.jpg)
 
@@ -87,13 +87,15 @@ Add the display on top with the pins like in picture below. PlugIn the network c
 
 Your SD-card needs to contain the RaspiBlitz software. You can take the long road by [building the SD-card image yourself](#build-the-sd-card-image) or use the already prepared SD-Card image:
 
-**Download SD-Card image - Version 1.3:**
+**Download SD-Card image - Version 1.4:**
 
-HTTP: https://raspiblitz.com/raspiblitz-v1.3-2019-09-05.img.gz
+*This is still an early Release Candidate image - only use if you have time to invest for testing and giving feedback. Everyone else is advised to wait for final version release before doing updates.*
 
-Torrent: https://github.com/rootzoll/raspiblitz/raw/v1.3/raspiblitz-v1.3-2019-09-05.torrent
+HTTP: https://raspiblitz.com/raspiblitz-v1.4RC2-2020-01-08.img.gz
 
-SHA-256: ab35ca7e8c05a02e26b90bcabe82f3e7c0f0bdf104df2bda3fde574e2ff5a72a or [SIGNATURE](https://raspiblitz.com/raspiblitz-v1.3-2019-09-05.img.gz.sig)
+SHA-256: b4a0daefc9352711200093afa08998d649569e0cb4de90cb39db1f150b4130af
+
+To see what new features to test and the place to give feedback - see [Milestone v1.4 issues list](https://github.com/rootzoll/raspiblitz/issues?utf8=%E2%9C%93&q=is%3Aissue+milestone%3A%221.4+Release%22+).
 
 **Write the SD-Card image to your SD Card**
 

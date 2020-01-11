@@ -27,10 +27,8 @@ if [ ${justLocal} -eq 1 ]; then
 also from outside your local network you need to 
 activate 'Services' -> 'DynamicDNS' FIRST.
 Or use SSH tunnel forwarding for port 10009.
-
 For more details see chapter in GitHub README 
-on the service 'DynamicDNS'
-https://github.com/rootzoll/raspiblitz
+on the service 'DynamicDNS'.
 
 Do you JUST want to connect with your mobile
 when your are on the same LOCAL NETWORK?
@@ -104,7 +102,7 @@ case $CHOICE in
 	  whiptail --title "Install Testflight and Zap on your iOS device" \
 			--yes-button "continue" \
 		  --no-button "link as QR code" \
-		  --yesno "At the moment this app is in public beta testing:\n\nhttps://testflight.apple.com/join/P32C380R\n\nJoin testing and follow ALL instructions.\n\nWhen installed and started -> continue" 10 60
+		  --yesno "Search for 'Zap Bitcoin' in Apple Appstore for basc version\nOr join public beta test for latest features:\nhttps://testflight.apple.com/join/P32C380R\n\nJoin testing and follow ALL instructions.\n\nWhen installed and started -> continue" 11 60
 
 	  if [ $? -eq 1 ]; then
 			/home/admin/XXdisplayQR.sh

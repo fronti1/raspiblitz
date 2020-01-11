@@ -69,7 +69,7 @@ do
     echo "*** RECHECK UNDERVOLTAGE ***"
     countReports=$(sudo cat /var/log/syslog | grep -c "Under-voltage detected!")
     echo "${countReports} undervoltage reports found in syslog"
-    if [ ${#undervoltageReports} -eq 0 ]; then
+    if ! grep -Eq "^undervoltageReports=" ${infoFile}; then
       # write new value to info file
       undervoltageReports="${countReports}"
       echo "undervoltageReports=${undervoltageReports}" >> ${infoFile}
@@ -91,6 +91,12 @@ do
   if [ ${#lndAddress} -gt 3 ]; then
     recheckPublicIP=0
   fi
+
+  # prevent also when runBehindTor is on
+  if [ "${runBehindTor}" = "1" ] || [ "${runBehindTor}" = "on" ]; then
+    recheckPublicIP=0
+  fi
+
   updateDynDomain=0
   if [ ${recheckPublicIP} -eq 1 ]; then
     echo "*** RECHECK PUBLIC IP ***"
@@ -252,7 +258,7 @@ do
 
         # building REST command
         passwordC=$(sudo cat /root/lnd.autounlock.pwd)
-        command="sudo python /home/admin/config.scripts/lnd.unlock.py '${passwordC}'"
+        command="sudo python3 /home/admin/config.scripts/lnd.unlock.py '${passwordC}'"
         bash -c "${command}"
         
       fi

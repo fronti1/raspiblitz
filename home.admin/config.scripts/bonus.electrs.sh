@@ -4,15 +4,56 @@
 
 # command info
 if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "-help" ]; then
- echo "small config script to switch the Electrum Rust Server on or off"
- echo "bonus.electrs.sh [on|off]"
+ echo "config script to switch the Electrum Rust Server on or off"
+ echo "bonus.electrs.sh [status|on|off]"
  exit 1
 fi
 
 source /mnt/hdd/raspiblitz.conf
 
+# give status
+if [ "$1" = "status" ]; then
+
+  echo "##### STATUS ELECTRS SERVICE"
+
+  if [ "${ElectRS}" = "on" ]; then
+    echo "configured=1"
+  else
+    echo "configured=0"
+  fi
+
+  serviceInstalled=$(sudo systemctl status electrs --no-page 2>/dev/null | grep -c "electrs.service - Electrs")
+  echo "serviceInstalled=${serviceInstalled}"
+  if [ ${serviceInstalled} -eq 0 ]; then
+    echo "infoSync='Service not installed'"
+  fi
+
+  serviceRunning=$(sudo systemctl status electrs --no-page 2>/dev/null | grep -c "active (running)")
+  echo "serviceRunning=${serviceRunning}"
+  if [ ${serviceRunning} -eq 0 ]; then
+    echo "infoSync='Not running - check: sudo journalctl -u electrs'"
+  fi
+
+  if [ ${serviceRunning} -eq 1 ]; then
+    # Experimental try to get sync Info
+    syncedToBlock=$(sudo journalctl -u electrs --no-pager -n100 | grep "new headers from height" | tail -n 1 | cut -d " " -f 16 | sed 's/[^0-9]*//g')
+    blockchainHeight=$(sudo -u bitcoin ${network}-cli getblockchaininfo 2>/dev/null | jq -r '.headers' | sed 's/[^0-9]*//g')
+    if [ "${syncedToBlock}" = "${blockchainHeight}" ]; then
+      echo "isSynced=1"
+    else
+      echo "isSynced=0"
+    fi
+    echo "infoSync='Syncing / Building Index (please wait)'"
+  else
+    echo "isSynced=0"
+  fi
+
+  exit 0
+fi
+
+
 # add default value to raspi config if needed
-if [ ${#ElectRS} -eq 0 ]; then
+if ! grep -Eq "^ElectRS=" /mnt/hdd/raspiblitz.conf; then
   echo "ElectRS=off" >> /mnt/hdd/raspiblitz.conf
 fi
 
@@ -28,9 +69,6 @@ if [ "$1" = "1" ] || [ "$1" = "on" ]; then
   if [ ${isInstalled} -eq 0 ]; then
 
     #cleanup
-    sudo systemctl stop electrs
-    sudo systemctl disable electrs
-    sudo rm -f /etc/systemd/system/electrs.service
     sudo rm -f /home/electrs/.electrs/config.toml 
 
     echo ""
@@ -71,6 +109,13 @@ if [ "$1" = "1" ] || [ "$1" = "on" ]; then
     echo "The electrs database will be built in /mnt/hdd/app-storage/electrs/db. Takes ~18 hours and ~50Gb diskspace"
     echo "***"
     echo ""
+
+    # move old-database if present
+    if [ -d "/mnt/hdd/electrs/db" ]; then
+      echo "Moving existing ElectRS index to /mnt/hdd/app-storage/electrs..."
+      sudo mv -f /mnt/hdd/electrs /mnt/hdd/app-storage/
+    fi
+
     sudo mkdir /mnt/hdd/app-storage/electrs 2>/dev/null
     sudo chown -R electrs:electrs /mnt/hdd/app-storage/electrs
 
@@ -220,7 +265,6 @@ RestartSec=60
 WantedBy=multi-user.target
     " | sudo tee -a /etc/systemd/system/electrs.service
     sudo systemctl enable electrs
-    sudo systemctl start electrs
     # manual start:
     # sudo -u electrs /home/electrs/.cargo/bin/cargo run --release -- --index-batch-size=10 --electrum-rpc-addr="0.0.0.0:50001"
     echo ""
@@ -231,9 +275,6 @@ WantedBy=multi-user.target
 
   else 
     echo "ElectRS is already installed."
-    # start service
-    echo "start service"
-    sudo systemctl start electrs 2>/dev/null
   fi
 
   # setting value in raspiblitz config
@@ -241,8 +282,7 @@ WantedBy=multi-user.target
 
   # Hidden Service for electrs if Tor active
   if [ "${runBehindTor}" = "on" ]; then
-    /home/admin/config.scripts/internet.hiddenservice.sh electrs 50002 50002
-    /home/admin/config.scripts/internet.hiddenservice.sh electrsTCP 50001 50001    
+    /home/admin/config.scripts/internet.hiddenservice.sh electrs 50002 50002 50001 50001    
     
     TOR_ADDRESS=$(sudo cat /mnt/hdd/tor/electrs/hostname)
     if [ -z "$TOR_ADDRESS" ]; then
@@ -265,7 +305,8 @@ WantedBy=multi-user.target
   fi
 
   ## Enable BTCEXP_ADDRESS_API if BTC-RPC-Explorer is active
-  /home/admin/config.scripts/bonus.electrsexplorer.sh
+  # see /home/admin/config.scripts/bonus.electrsexplorer.sh
+  # run every 10 min by _background.sh
   
   echo ""
   echo "To connect through SSL from outside of the local network make sure the port 50002 is forwarded on the router"
@@ -283,14 +324,22 @@ if [ "$1" = "0" ] || [ "$1" = "off" ]; then
 
   isInstalled=$(sudo ls /etc/systemd/system/electrs.service 2>/dev/null | grep -c 'electrs.service')
   if [ ${isInstalled} -eq 1 ]; then
+
     echo "*** REMOVING ELECTRS ***"
+
     sudo systemctl stop electrs
     sudo systemctl disable electrs
+
     sudo rm /etc/systemd/system/electrs.service
+
     sudo rm -rf /home/electrs/electrs
     sudo rm -rf /home/electrs/.cargo
     sudo rm -rf /home/electrs/.rustup
     sudo rm -rf /home/electrs/.profile
+
+    # delete also db (because in case HDD is full, deactivating should free data)
+    sudo rm -rf /mnt/hdd/app-storage/electrs/
+
     echo "OK ElectRS removed."
     
     ## Disable BTCEXP_ADDRESS_API if BTC-RPC-Explorer is active

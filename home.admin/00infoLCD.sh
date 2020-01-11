@@ -138,6 +138,23 @@ while :
       if [ ${online} -eq 0 ]; then
         message="no internet connection"
 
+      # when in presync - get more info on progress
+      elif [ "${state}" = "presync" ]; then
+        blockchaininfo="$(sudo -u root bitcoin-cli --conf=/home/admin/assets/bitcoin.conf getblockchaininfo 2>/dev/null)"
+        message="starting"
+        if [ ${#blockchaininfo} -gt 0 ]; then
+          message="$(echo "${blockchaininfo}" | jq -r '.verificationprogress')"
+          message=$(echo $message | awk '{printf( "%.2f%%", 100 * $1)}')
+        fi
+
+      # when old data - improve message
+      elif [ "${state}" = "sdtoosmall" ]; then
+          message="SDCARD TOO SMALL - min 16GB"
+
+      # when old data - improve message
+      elif [ "${state}" = "olddata" ]; then
+          message="login for manual migration"
+
       # when no HDD - improve message
       elif [ "${state}" = "noHDD" ]; then
           message="Connect external HDD/SSD"
@@ -147,6 +164,11 @@ while :
       l1="Login to your RaspiBlitz with:\n"
       l2="ssh admin@${localip}\n"
       l3="Use password: raspiblitz\n"
+
+      if [ "${state}" = "recovering" ]; then
+        l1="Recovering please wait - for debug:\n"
+      fi
+
       boxwidth=$((${#localip} + 24))
       sleep 3
       dialog --backtitle "RaspiBlitz ${codeVersion} (${state}) - ${message}" --infobox "$l1$l2$l3" 5 ${boxwidth}
@@ -263,14 +285,29 @@ while :
       continue
     fi
 
+    # perform config check
+    configCheck=$(/home/admin/config.scripts/blitz.configcheck.py)
+    if [ $? -eq 0 ]; then
+      configValid=1
+      # echo "Config Valid!"
+    else
+      configValid=0
+      # echo "Config Not Valid!"
+      l1="POTENTIAL CONFIG ERROR FOUND\n"
+      l2="ssh admin@${localip}\n"
+      l3="use PasswordA and then run:\n"
+      l4="/home/admin/config.scripts/blitz.configcheck.py"
+      dialog --backtitle "RaspiBlitz ${codeVersion} cfg-err ${localip}" --infobox "$l1$l2$l3$l4" 6 50
+      sleep 20
+      continue
+    fi
+
     # no special case - show status display
-	  /home/admin/00infoBlitz.sh
+    /home/admin/00infoBlitz.sh
     if [ ${#touchscreen} -gt 0 ] && [ ${touchscreen} -gt 0 ]; then
       echo ""
       echo ""
     fi
-	  sleep 5
+    sleep 5
 
-  done
-
-fi
+done

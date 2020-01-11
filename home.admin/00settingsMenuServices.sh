@@ -124,12 +124,32 @@ if [ ${check} -eq 1 ]; then choice="on"; fi
 if [ "${loop}" != "${choice}" ]; then
   echo "Loop Setting changed .."
   anychange=1
-  sudo /home/admin/config.scripts/bonus.loop.sh ${choice}
-  whiptail --title " Installed the Lightning Loop Service (loopd) " --msgbox "\
+  /home/admin/config.scripts/bonus.loop.sh ${choice}
+  errorOnInstall=$?
+  if [ "${choice}" =  "on" ]; then
+    if [ ${errorOnInstall} -eq 0 ]; then
+      sudo systemctl start loopd
+      if [ ${#GOPATH} -eq 0 ]; then
+        whiptail --title " Installed the Lightning Loop Service (loopd) " --msgbox "\
 Usage and examples: https://github.com/lightninglabs/loop#loop-out-swaps\n
-Start from the command line by typing 'loop' to see the options.
-" 10 75 
-  needsReboot=0
+Start from the command line after the reboot.
+Use the command 'loop' to see the options.
+" 11 56
+        needsReboot=1
+      else
+        whiptail --title " Installed the Lightning Loop Service (loopd) " --msgbox "\
+Usage and examples: https://github.com/lightninglabs/loop#loop-out-swaps\n
+Use the command 'loop' to see the options.
+" 10 56
+        needsReboot=0
+      fi
+    else
+      l1="FAILED to install Lightning LOOP"
+      l2="Try manual install in the terminal with:"
+      l3="/home/admin/config.scripts/bonus.loop.sh on"
+      dialog --title 'FAIL' --msgbox "${l1}\n${l2}\n${l3}" 7 65
+    fi
+  fi
 else 
   echo "Loop Setting unchanged."
 fi
@@ -301,6 +321,7 @@ if [ "${rtlWebinterface}" != "${choice}" ]; then
   errorOnInstall=$?
   if [ "${choice}" =  "on" ]; then
     if [ ${errorOnInstall} -eq 0 ]; then
+      sudo systemctl start RTL
       localip=$(ip addr | grep 'state UP' -A2 | tail -n1 | awk '{print $2}' | cut -f1 -d'/')
       if [ "${runBehindTor}" = "on" ]; then
         TOR_ADDRESS=$(sudo cat /mnt/hdd/tor/RTL/hostname)
@@ -338,13 +359,14 @@ if [ "${BTCRPCexplorer}" != "${choice}" ]; then
   errorOnInstall=$?
   if [ "${choice}" =  "on" ]; then
     if [ ${errorOnInstall} -eq 0 ]; then
+      sudo sytemctl start btc-rpc-explorer
       localip=$(ip addr | grep 'state UP' -A2 | tail -n1 | awk '{print $2}' | cut -f1 -d'/')
       if [ "${runBehindTor}" = "on" ]; then
         TOR_ADDRESS=$(sudo cat /mnt/hdd/tor/btc-rpc-explorer/hostname)
         whiptail --title " Installed BTC-RPC-Explorer " --msgbox "\
 The txindex needs to be created before BTC-RPC-Explorer can be active.
-Takes ~7 hours on a RPi4 with SSD. Monitor in the terminal with:
-'sudo tail -f -n 100 -f /mnt/hdd/bitcoin/debug.log | grep txindex'\n
+Takes ~7 hours on a RPi4 with SSD.
+Monitor the progress on the LCD or with 'INFO' in main menu.\n
 BTC-RPC-Explorer will be available on the following URL in your local web browser:\n
 ---> http://${localip}:3002\n
 The Hidden Service address to be used in the Tor Browser is:\n
@@ -353,8 +375,8 @@ ${TOR_ADDRESS}
       else
         whiptail --title " Installed BTC-RPC-Explorer " --msgbox "\
 The txindex needs to be created before BTC-RPC-Explorer can be active.
-Takes ~7 hours on a RPi4 with SSD. Monitor in the terminal with:
-'sudo tail -f -n 100 -f /mnt/hdd/bitcoin/debug.log | grep txindex'\n
+Takes ~7 hours on a RPi4 with SSD.
+Monitor the progress on the LCD or with 'INFO' in main menu.\n
 BTC-RPC-Explorer will be available on the following URL in your local web browser:\n
 ---> http://${localip}:3002
 " 14 75 
@@ -425,6 +447,7 @@ if [ "${ElectRS}" != "${choice}" ]; then
   errorOnInstall=$?
   if [ "${choice}" =  "on" ]; then
     if [ ${errorOnInstall} -eq 0 ]; then
+      sudo systemctl start electrs
       localip=$(ip addr | grep 'state UP' -A2 | tail -n1 | awk '{print $2}' | cut -f1 -d'/')
       if [ "${runBehindTor}" = "on" ]; then
         TOR_ADDRESS=$(sudo cat /mnt/hdd/tor/electrs/hostname)
@@ -524,12 +547,14 @@ if [ "${lndmanage}" != "${choice}" ]; then
   echo "lndmanage Setting changed .."
   anychange=1
   sudo /home/admin/config.scripts/bonus.lndmanage.sh ${choice}
-  whiptail --title " Installed lndmanage " --msgbox "\
+  if [ "${choice}" =  "on" ]; then
+    whiptail --title " Installed lndmanage " --msgbox "\
 Usage: https://github.com/bitromortac/lndmanage/blob/master/README.md\n
 Start with the line:
 'cd lndmanage & source venv/bin/activate & lndmanage'\n
 To exit: type 'deactivate' and press ENTER
-" 12 75 
+" 12 75
+  fi
   needsReboot=0
 else 
   echo "lndmanage setting unchanged."

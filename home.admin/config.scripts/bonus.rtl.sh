@@ -16,8 +16,10 @@ if [ ${#network} -eq 0 ]; then
  exit 1
 fi
 
+source /mnt/hdd/raspiblitz.conf
+
 # add default value to raspi config if needed
-if [ ${#rtlWebinterface} -eq 0 ]; then
+if ! grep -Eq "^rtlWebinterface=" /mnt/hdd/raspiblitz.conf; then
   echo "rtlWebinterface=off" >> /mnt/hdd/raspiblitz.conf
 fi
 
@@ -40,7 +42,9 @@ if [ "$1" = "1" ] || [ "$1" = "on" ]; then
     rm -r /home/admin/RTL 2>/dev/null
     git clone https://github.com/ShahanaFarooqui/RTL.git /home/admin/RTL
     cd /home/admin/RTL
-    git reset --hard v0.5.4
+    # git reset --hard v0.5.4
+    # from https://github.com/Ride-The-Lightning/RTL/commits/master
+    git checkout 917feebfa4fb583360c140e817c266649307ef72
     # check if node_modles exists now
     if [ -d "/home/admin/RTL" ]; then
      echo "OK - RTL code copy looks good"
@@ -93,10 +97,6 @@ if [ "$1" = "1" ] || [ "$1" = "on" ]; then
     echo "RTL already installed."
   fi
   
-  # start service
-  echo "Starting service"
-  sudo systemctl start RTL 2>/dev/null
-
   # setting value in raspi blitz config
   sudo sed -i "s/^rtlWebinterface=.*/rtlWebinterface=on/g" /mnt/hdd/raspiblitz.conf
 

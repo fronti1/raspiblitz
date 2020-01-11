@@ -60,34 +60,7 @@ class AppWindow(QMainWindow):
         # translations..?!
         self._translate = QCoreApplication.translate
 
-        if IS_WIN32_ENV:
-            log.info("using dummy config on win32")
-            lnd_cfg_abs_path = os.path.join(os.path.dirname(__file__), "..", "data", os.path.basename(LND_CONF))
-            rb_cfg_abs_path = os.path.join(os.path.dirname(__file__), "..", "data", os.path.basename(RB_CONF))
-            rb_info_abs_path = os.path.join(os.path.dirname(__file__), "..", "data", os.path.basename(RB_INFO))
-        else:
-            lnd_cfg_abs_path = LND_CONF
-            rb_cfg_abs_path = RB_CONF
-            rb_info_abs_path = RB_INFO
-
-        # read config and info files
-        if not os.path.exists(lnd_cfg_abs_path):
-            raise Exception("file does not exist: {}".format(lnd_cfg_abs_path))
-
-        if not os.path.exists(rb_cfg_abs_path):
-            raise Exception("file does not exist: {}".format(rb_cfg_abs_path))
-
-        if not os.path.exists(rb_info_abs_path):
-            raise Exception("file does not exist: {}".format(rb_info_abs_path))
-
-        self.lnd_cfg = LndConfig(lnd_cfg_abs_path)
-        self.lnd_cfg.reload()
-
-        self.rb_cfg = RaspiBlitzConfig(rb_cfg_abs_path)
-        self.rb_cfg.reload()
-
-        self.rb_info = RaspiBlitzInfo(rb_info_abs_path)
-        self.rb_info.reload()
+        self.check_config()
 
         # initialize attributes
         self.invoice_to_check = None
@@ -110,8 +83,9 @@ class AppWindow(QMainWindow):
 
         # initial updates
         self.update_uptime()
-        self.update_status_lnd()
-        self.update_status_lnd_channels()
+        if self.cfg_valid:
+            self.update_status_lnd()
+            self.update_status_lnd_channels()
 
         # initial update of Main Window Title Bar
         self.update_title_bar()
@@ -182,6 +156,54 @@ class AppWindow(QMainWindow):
         process.start('xterm', ['-fn', 'fixed', '-into', str(int(self.ui.widget.winId())),
                                 '+sb', '-hold', '-e', 'bash -c \"/home/admin/00infoLCD.sh --pause {}\"'.format(pause)])
 
+    def check_config(self):
+        if IS_WIN32_ENV:
+            log.info("using dummy config on win32")
+            lnd_cfg_abs_path = os.path.join(os.path.dirname(__file__), "..", "data", os.path.basename(LND_CONF))
+            rb_cfg_abs_path = os.path.join(os.path.dirname(__file__), "..", "data", os.path.basename(RB_CONF))
+            rb_info_abs_path = os.path.join(os.path.dirname(__file__), "..", "data", os.path.basename(RB_INFO))
+        else:
+            lnd_cfg_abs_path = LND_CONF
+            rb_cfg_abs_path = RB_CONF
+            rb_info_abs_path = RB_INFO
+
+        # read config and info files
+        if not os.path.exists(lnd_cfg_abs_path):
+            log.warning("file does not exist: {}".format(lnd_cfg_abs_path))
+
+        if not os.path.exists(rb_cfg_abs_path):
+            log.warning("file does not exist: {}".format(rb_cfg_abs_path))
+
+        if not os.path.exists(rb_info_abs_path):
+            log.warning("file does not exist: {}".format(rb_info_abs_path))
+
+        lnd_cfg_valid = False
+        self.lnd_cfg = LndConfig(lnd_cfg_abs_path)
+        try:
+            self.lnd_cfg.reload()
+            lnd_cfg_valid = True
+        except Exception as err:
+            pass
+
+        rb_cfg_valid = False
+        self.rb_cfg = RaspiBlitzConfig(rb_cfg_abs_path)
+        try:
+            self.rb_cfg.reload()
+            rb_cfg_valid = True
+        except Exception as err:
+            pass
+
+        rb_info_valid = False
+        self.rb_info = RaspiBlitzInfo(rb_info_abs_path)
+        try:
+            self.rb_info.reload()
+            rb_info_valid = True
+        except Exception as err:
+            pass
+
+        self.cfg_valid = lnd_cfg_valid and rb_cfg_valid and rb_info_valid
+        log.debug("checked cfg_valid with result: {}".format(self.cfg_valid))
+
     def check_invoice(self, flag, tick=0):
         log.info("checking invoice paid (Tick: {})".format(tick))
         self.invoice_to_check_flag = flag
@@ -198,9 +220,9 @@ class AppWindow(QMainWindow):
                 res = True
 
         else:
-            stub_readonly = ReadOnlyStub(network=self.rb_cfg.network, chain=self.rb_cfg.chain)
-            res, amt_paid_sat = check_invoice_paid(stub_readonly, self.invoice_to_check)
-            log.debug("result of invoice check: {}".format(res))
+            with ReadOnlyStub(network=self.rb_cfg.network, chain=self.rb_cfg.chain) as stub_readonly:
+                res, amt_paid_sat = check_invoice_paid(stub_readonly, self.invoice_to_check)
+                log.debug("result of invoice check: {}".format(res))
 
         if res:
             log.debug("paid!")
@@ -222,15 +244,16 @@ class AppWindow(QMainWindow):
         # log.debug("update_status_lnd due: {}".format(self.status_lnd_due))
         if self.status_lnd_due <= self.uptime:
             log.debug("updating status_lnd")
-            stub_readonly = ReadOnlyStub(network=self.rb_cfg.network, chain=self.rb_cfg.chain)
-            pid_ok, listen_ok, unlocked, synced_to_chain, synced_to_graph = check_lnd(stub_readonly)
-            self.status_lnd_pid_ok = pid_ok
-            self.status_lnd_listen_ok = listen_ok
-            self.status_lnd_unlocked = unlocked
-            self.status_lnd_synced_to_chain = synced_to_chain
-            self.status_lnd_synced_to_graph = synced_to_graph
-            # set next due time
-            self.status_lnd_due = self.uptime + self.status_lnd_interval
+
+            with ReadOnlyStub(network=self.rb_cfg.network, chain=self.rb_cfg.chain) as stub_readonly:
+                pid_ok, listen_ok, unlocked, synced_to_chain, synced_to_graph = check_lnd(stub_readonly)
+                self.status_lnd_pid_ok = pid_ok
+                self.status_lnd_listen_ok = listen_ok
+                self.status_lnd_unlocked = unlocked
+                self.status_lnd_synced_to_chain = synced_to_chain
+                self.status_lnd_synced_to_graph = synced_to_graph
+                # set next due time
+                self.status_lnd_due = self.uptime + self.status_lnd_interval
 
     def update_status_lnd_channels(self):
         if IS_WIN32_ENV:
@@ -239,11 +262,12 @@ class AppWindow(QMainWindow):
         # log.debug("update_status_lnd_channel due: {}".format(self.status_lnd_channel_due))
         if self.status_lnd_channel_due <= self.uptime:
             log.debug("updating status_lnd_channels")
-            stub_readonly = ReadOnlyStub(network=self.rb_cfg.network, chain=self.rb_cfg.chain)
-            self.status_lnd_channel_total_active, self.status_lnd_channel_total_remote_balance = \
-                check_lnd_channels(stub_readonly)
-            # set next due time
-            self.status_lnd_channel_due = self.uptime + self.status_lnd_channel_interval
+
+            with ReadOnlyStub(network=self.rb_cfg.network, chain=self.rb_cfg.chain) as stub_readonly:
+                self.status_lnd_channel_total_active, self.status_lnd_channel_total_remote_balance = \
+                    check_lnd_channels(stub_readonly)
+                # set next due time
+                self.status_lnd_channel_due = self.uptime + self.status_lnd_channel_interval
 
     def update_title_bar(self):
         log.debug("updating: Main Window Title Bar")
@@ -260,9 +284,11 @@ class AppWindow(QMainWindow):
             # log.info("Uptime: {}".format(self.uptime))
 
     def process_beat(self, _):
+        self.check_config()
         self.update_uptime()
-        self.update_status_lnd()
-        self.update_status_lnd_channels()
+        if self.cfg_valid:
+            self.update_status_lnd()
+            self.update_status_lnd_channels()
 
     def update_watched_attr(self):
         log.debug("updating: watched attributes")
@@ -297,7 +323,7 @@ class AppWindow(QMainWindow):
             pub = [(pub[i:i + n]) for i in range(0, len(pub), n)]
             host = [(host[i:i + n]) for i in range(0, len(host), n)]
             self.ui_qr_code.memo_value.show()
-            self.ui_qr_code.memo_value.setText("{} \n@\n{} \n:{}".format(" ".join(pub), " ".join(host), port))
+            self.ui_qr_code.memo_value.setText("{} \n@{} \n:{}".format(" ".join(pub), " ".join(host), port))
 
             self.ui_qr_code.status_key.hide()
             self.ui_qr_code.status_value.hide()
@@ -520,8 +546,8 @@ class AppWindow(QMainWindow):
             new_invoice = FakeAddInvoiceResponse()
 
         else:
-            stub_invoice = InvoiceStub(network=self.rb_cfg.network, chain=self.rb_cfg.chain)
-            new_invoice = create_invoice(stub_invoice, memo, amt)
+            with InvoiceStub(network=self.rb_cfg.network, chain=self.rb_cfg.chain) as stub_invoice:
+                new_invoice = create_invoice(stub_invoice, memo, amt)
 
         log.info("#{}: {}".format(new_invoice.add_index, new_invoice.payment_request))
 
@@ -535,12 +561,12 @@ class AppWindow(QMainWindow):
         if IS_DEV_ENV:
             return "535f209faaea75427949e3e6c1fc9edafbf751f08706506bb873fdc93ffc2d4e2c@pqcjuc47eqcv6mk2.onion:9735"
 
-        stub_readonly = ReadOnlyStub(network=self.rb_cfg.network, chain=self.rb_cfg.chain)
+        with ReadOnlyStub(network=self.rb_cfg.network, chain=self.rb_cfg.chain) as stub_readonly:
 
-        res = get_node_uri(stub_readonly)
-        log.info("Node URI: : {}".format(res))
+            res = get_node_uri(stub_readonly)
+            log.info("Node URI: {}".format(res))
 
-        return res
+            return res
 
 
 class ClockStoppableThread(QThread):
@@ -622,12 +648,6 @@ Keep on stacking SATs..! :-D"""
     parser.add_argument("-V", "--version",
                         help="print version", action="version",
                         version=__version__)
-    #
-    # parser.add_argument("-g", "--game",
-    #                     help="game binary", type=str)
-    #
-    # parser.add_argument("-s", "--skip",
-    #                     help="skip", action="store_true")
 
     # parse args
     args = parser.parse_args()

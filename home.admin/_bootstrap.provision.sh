@@ -26,6 +26,40 @@ if [ ${configExists} -eq 0 ]; then
   exit 1
 fi
 
+# check if file system was expanded to full capacity and sd card is bigger then 8GB
+# see: https://github.com/rootzoll/raspiblitz/issues/936
+isRaspbian=$(cat /etc/os-release 2>/dev/null | grep -c 'Raspbian')
+if [ ${isRaspbian} -gt 0 ]; then
+  echo "### RASPBIAN: CHECKING SD CARD SIZE ###" >> ${logFile}
+  sudo sed -i "s/^message=.*/message='Checking SD Card'/g" ${infoFile}
+  byteSizeSdCard=$(df --output=size,source | grep "/dev/root" | tr -cd "[0-9]")
+  echo "Size in Bytes is: ${byteSizeSdCard}" >> ${logFile}
+  if [ ${byteSizeSdCard} -lt 8192000 ]; then
+    echo "SD Card filesystem is smaller then 8GB." >> ${logFile}
+    if [ ${fsexpanded} -eq 1 ]; then
+      echo "There was already an attempt to expand the fs, but still not bigger then 8GB." >> ${logFile}
+      echo "SD card seems to small - at least a 16GB card is needed. Display on LCD to user." >> ${logFile}
+      sudo sed -i "s/^state=.*/state=sdtoosmall/g" ${infoFile}
+      sudo sed -i "s/^message=.*/message='Min 16GB SD card needed'/g" ${infoFile}
+      exit 1
+    else
+      echo "Try to expand SD card FS, display info and reboot." >> ${logFile}
+      sudo sed -i "s/^state=.*/state=reboot/g" ${infoFile}
+      sudo sed -i "s/^message=.*/message='Expanding SD Card'/g" ${infoFile}
+      sudo sed -i "s/^fsexpanded=.*/fsexpanded=1/g" ${infoFile}
+      sudo raspi-config --expand-rootfs
+      sleep 6
+      sudo shutdown -r now
+      exit 0
+    fi
+  else
+    echo "Size looks good. Bigger then 8GB card is used." >> ${logFile}
+  fi
+else
+  echo "Baseimage is not raspbian (${isRaspbian}), skipping the sd card size check." >> ${logFile}
+fi
+
+
 # import config values
 sudo chmod 777 ${configFile}
 source ${configFile}
@@ -164,10 +198,57 @@ fi
 if [ "${rtlWebinterface}" = "on" ]; then
     echo "Provisioning RTL - run config script" >> ${logFile}
     sudo sed -i "s/^message=.*/message='Setup RTL (takes time)'/g" ${infoFile}
-    sudo /home/admin/config.scripts/bonus.rtl.sh on >> ${logFile} 2>&1
+    sudo -u admin /home/admin/config.scripts/bonus.rtl.sh on >> ${logFile} 2>&1
     sudo systemctl disable RTL # will get enabled after recover dialog
 else
     echo "Provisioning RTL - keep default" >> ${logFile}
+fi
+
+#LOOP
+if [ "${loop}" = "on" ]; then
+  echo "Provisioning Lightning Loop - run config script" >> ${logFile}
+  sudo sed -i "s/^message=.*/message='Setup Lightning Loop'/g" ${infoFile}
+  sudo -u admin /home/admin/config.scripts/bonus.loop.sh on >> ${logFile} 2>&1
+  sudo systemctl disable loopd # will get enabled after recover dialog
+else
+  echo "Provisioning Lightning Loop - keep default" >> ${logFile}
+fi
+
+#BTC RPC EXPLORER
+if [ "${BTCRPCexplorer}" = "on" ]; then
+  echo "Provisioning BTCRPCexplorer - run config script" >> ${logFile}
+  sudo sed -i "s/^message=.*/message='Setup BTCRPCexplorer (takes time)'/g" ${infoFile}
+  sudo -u admin /home/admin/config.scripts/bonus.btc-rpc-explorer.sh on >> ${logFile} 2>&1
+  sudo systemctl disable btc-rpc-explorer # will get enabled after recover dialog
+else
+  echo "Provisioning BTCRPCexplorer - keep default" >> ${logFile}
+fi
+
+#ELECTRS
+if [ "${ElectRS}" = "on" ]; then
+  echo "Provisioning ElectRS - run config script" >> ${logFile}
+  sudo sed -i "s/^message=.*/message='Setup ElectRS (takes time)'/g" ${infoFile}
+  sudo -u admin /home/admin/config.scripts/bonus.electrs.sh on >> ${logFile} 2>&1
+  sudo systemctl disable electrs # will get enabled after recover dialog
+else
+  echo "Provisioning ElectRS - keep default" >> ${logFile}
+fi
+
+# BTCPAYSERVER - not restored due to need for domain name and port forwarding
+if [ "${BTCPayServer}" = "on" ]; then
+  echo "Setting BTCPayServer to be off - will need to be reinstalled from the menu again" >> ${logFile}
+  sudo sed -i "s/^BTCPayServer=.*/BTCPayServer=off/g" /mnt/hdd/raspiblitz.conf
+else
+  echo "Provisioning BTCPayServer - keep default" >> ${logFile}
+fi
+
+# LNDMANAGE
+if [ "${lndmanage}" = "on" ]; then
+  echo "Provisioning lndmanage - run config script" >> ${logFile}
+  sudo sed -i "s/^message=.*/message='Setup lndmanage '/g" ${infoFile}
+  sudo -u admin /home/admin/config.scripts/bonus.lndmanage.sh on >> ${logFile} 2>&1
+else
+  echo "Provisioning ElectRS - keep default" >> ${logFile}
 fi
 
 # CUSTOM PORT
@@ -240,6 +321,8 @@ if [ "${#ups}" -gt 0 ]; then
 else
     echo "Provisioning UPS - not active" >> ${logFile}
 fi
+
+
 
 # replay backup LND conf & tlscerts
 # https://github.com/rootzoll/raspiblitz/issues/324

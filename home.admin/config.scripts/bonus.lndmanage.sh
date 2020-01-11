@@ -7,32 +7,38 @@ if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "-help" ]; then
  exit 1
 fi
 
+source /mnt/hdd/raspiblitz.conf
+
 # add default value to raspi config if needed
-if [ ${#lndmanage} -eq 0 ]; then
+if ! grep -Eq "^lndmanage=" /mnt/hdd/raspiblitz.conf; then
   echo "lndmanage=off" >> /mnt/hdd/raspiblitz.conf
 fi
 
 # install
 if [ "$1" = "1" ] || [ "$1" = "on" ]; then
+
+  if [ -d "/home/admin/lndmanage" ]; then
+    echo "LNDMANAGE already installed"
+    exit 1
+  fi
+  
   echo "*** INSTALL LNDMANAGE ***"
-  mkdir lndmanage
-  cd lndmanage
+  mkdir /home/admin/lndmanage
+  cd /home/admin/lndmanage
   # activate virtual environment
-  sudo apt install -y python3-venv
-  python3 -m venv venv
-  source venv/bin/activate
+  python -m venv venv
+  source /home/admin/lndmanage/venv/bin/activate
   # get dependencies
   sudo apt install -y python3-dev libatlas-base-dev
-  pip3 install wheel
-  pip3 install lndmanage==0.8.0.1
+  python -m pip install wheel
+  python -m pip install lndmanage==0.8.0.1
 
   # setting value in raspi blitz config
   sudo sed -i "s/^lndmanage=.*/lndmanage=on/g" /mnt/hdd/raspiblitz.conf
 
   echo "usage: https://github.com/bitromortac/lndmanage/blob/master/README.md"
-  echo "start with the line:"
-  echo "'cd lndmanage & source venv/bin/activate & lndmanage'"
-  echo "to exit type 'deactivate' and press ENTER"
+  echo "to start type on command line: manage"
+  echo "to exit then venv - type 'deactivate' and press ENTER"
 
   exit 0
 fi

@@ -7,11 +7,33 @@
 # command info
 if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "-help" ]; then
  echo "small config script to switch BTC-RPC-explorer on or off"
- echo "bonus.btc-rcp-explorer.sh [on|off]"
+ echo "bonus.btc-rpc-explorer.sh [status|on|off]"
  exit 1
 fi
 
 source /mnt/hdd/raspiblitz.conf
+
+# add default value to raspi config if needed
+if ! grep -Eq "^BTCRPCexplorer=" /mnt/hdd/raspiblitz.conf; then
+  echo "BTCRPCexplorer=off" >> /mnt/hdd/raspiblitz.conf
+fi
+
+# status
+if [ "$1" = "status" ]; then
+
+  if [ "${BTCRPCexplorer}" = "on" ]; then
+    echo "configured=1"
+
+    # check indexing
+    source <(sudo /home/admin/config.scripts/network.txindex.sh status)
+    echo "isIndexed=${isIndexed}"
+    echo "indexInfo='${indexInfo}'"
+
+  else
+    echo "configured=0"
+  fi
+  exit 0
+fi
 
 # determine nodeJS DISTRO
 isARM=$(uname -m | grep -c 'arm')   
@@ -37,11 +59,6 @@ echo "FAIL: Was not able to determine architecture"
 exit 1
 fi
 
-# add default value to raspi config if needed
-if [ ${#BTCRPCexplorer} -eq 0 ]; then
-  echo "BTCRPCexplorer=off" >> /mnt/hdd/raspiblitz.conf
-fi
-
 # stop service
 echo "making sure services are not running"
 sudo systemctl stop btc-rpc-explorer 2>/dev/null
@@ -56,15 +73,16 @@ if [ "$1" = "1" ] || [ "$1" = "on" ]; then
     # install nodeJS
     /home/admin/config.scripts/bonus.nodejs.sh
 
+    # make sure that txindex of blockchain is switched on
     /home/admin/config.scripts/network.txindex.sh on
 
     npm install -g btc-rpc-explorer@1.1.3
 
     # prepare .env file
-    echo "getting RPC credentials from the bitcoin.conf"
+    echo "getting RPC credentials from the ${network}.conf"
 
-    RPC_USER=$(sudo cat /mnt/hdd/bitcoin/bitcoin.conf | grep rpcuser | cut -c 9-)
-    PASSWORD_B=$(sudo cat /mnt/hdd/bitcoin/bitcoin.conf | grep rpcpassword | cut -c 13-)
+    RPC_USER=$(sudo cat /mnt/hdd/${network}/${network}.conf | grep rpcuser | cut -c 9-)
+    PASSWORD_B=$(sudo cat /mnt/hdd/${network}/${network}.conf | grep rpcpassword | cut -c 13-)
 
     sudo -u bitcoin mkdir /home/bitcoin/.config/ 2>/dev/null
     touch /home/admin/btc-rpc-explorer.env
@@ -80,7 +98,7 @@ BTCEXP_HOST=0.0.0.0
 #   - [username/password]: none
 #   - cookie: '~/.bitcoin/.cookie'
 #   - timeout: 5000 (ms)
-BTCEXP_BITCOIND_URI=bitcoin://$RPC_USER:$PASSWORD_B@127.0.0.1:8332?timeout=10000
+BTCEXP_BITCOIND_URI=$network://$RPC_USER:$PASSWORD_B@127.0.0.1:8332?timeout=10000
 #BTCEXP_BITCOIND_HOST=127.0.0.1
 #BTCEXP_BITCOIND_PORT=8332
 BTCEXP_BITCOIND_USER=$RPC_USER
@@ -114,8 +132,8 @@ EOF
 
 [Unit]
 Description=btc-rpc-explorer
-Wants=bitcoind.service
-After=bitcoind.service
+Wants=${network}d.service
+After=${network}d.service
 
 [Service]
 ExecStart=/usr/local/lib/nodejs/node-$(node -v)-$DISTRO/bin/btc-rpc-explorer
@@ -138,10 +156,6 @@ EOF
     echo "BTC-RPC-explorer already installed."
   fi
 
-  # start service
-  echo "Starting service"
-  sudo systemctl start btc-rpc-explorer 2>/dev/null
-
   # setting value in raspi blitz config
   sudo sed -i "s/^BTCRPCexplorer=.*/BTCRPCexplorer=on/g" /mnt/hdd/raspiblitz.conf
   
@@ -149,7 +163,8 @@ EOF
   echo "monitor with: sudo tail -n 20 -f /mnt/hdd/bitcoin/debug.log"
 
   ## Enable BTCEXP_ADDRESS_API if BTC-RPC-Explorer is active
-  /home/admin/config.scripts/bonus.electrsexplorer.sh
+  # see /home/admin/config.scripts/bonus.electrsexplorer.sh
+  # run every 10 min by _background.sh
 
   # Hidden Service for BTC-RPC-explorer if Tor is active
   source /mnt/hdd/raspiblitz.conf

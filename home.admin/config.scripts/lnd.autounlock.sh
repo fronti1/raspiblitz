@@ -28,12 +28,19 @@ https://github.com/rootzoll/raspiblitz
 
 Password C will be stored on the device.
 " 13 52 2>./.tmp
+ 
+  wasCancel=$( echo $? )
   passwordC=$( cat ./.tmp )
   
-  # test if empty
+  if [ ${wasCancel} -eq 1 ]; then
+    echo "# CANCEL LND Auto-Unlock"
+    sleep 2
+    exit 1
+  fi
   if [ ${#passwordC} -eq 0 ]; then
-    echo "# CANCEL input cannot be empty"
+    echo "# input cannot be empty - repeat"
     sleep 3
+    sudo /home/admin/config.scripts/lnd.autounlock.sh on
     exit 1
   fi
 

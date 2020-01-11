@@ -7,8 +7,10 @@ if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "-help" ]; then
  exit 1
 fi
 
+source /mnt/hdd/raspiblitz.conf
+
 # add default value to raspi config if needed
-if [ ${#loop} -eq 0 ]; then
+if ! grep -Eq "^loop=" /mnt/hdd/raspiblitz.conf; then
   echo "loop=off" >> /mnt/hdd/raspiblitz.conf
 fi
 
@@ -61,16 +63,18 @@ WantedBy=multi-user.target
   else 
     echo "Loop service already installed."
   fi
-  
-  # start service
-  echo "Starting service"
-  sudo systemctl start loopd 2>/dev/null
 
   # setting value in raspi blitz config
   sudo sed -i "s/^loop=.*/loop=on/g" /mnt/hdd/raspiblitz.conf
-
-  echo "Find info on how to use on https://github.com/lightninglabs/loop#loop-out-swaps"
-
+  
+  isInstalled=$(loop | grep -c loop)
+  if [ ${isInstalled} -gt 0 ] ; then
+    echo "Find info on how to use on https://github.com/lightninglabs/loop#loop-out-swaps"
+  else
+    echo " Failed to install Lightning Loop "
+    exit 1
+  fi
+  
   exit 0
 fi
 
@@ -87,6 +91,8 @@ if [ "$1" = "0" ] || [ "$1" = "off" ]; then
     sudo systemctl disable loopd
     sudo rm /etc/systemd/system/loopd.service
     sudo rm -rf /home/bitcoin/loop
+    sudo rm  /usr/local/gocode/bin/loop
+    sudo rm  /usr/local/gocode/bin/loopd
     echo "OK, the Loop Service is removed."
   else 
     echo "Loop is not installed."

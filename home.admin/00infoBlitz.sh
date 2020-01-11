@@ -84,6 +84,9 @@ else
   color_ram=${color_green}
 fi
 
+# get name of active interface (eth0 or wlan0)
+network_active_if=$(ip addr | grep -v "lo:" | grep 'state UP' | tr -d " " | cut -d ":" -f2 | head -n 1)
+
 # get network traffic
 # ifconfig does not show eth0 on Armbian or in a VM - get first traffic info 
 isArmbian=$(cat /etc/os-release 2>/dev/null | grep -c 'Debian')
@@ -91,8 +94,8 @@ if [ ${isArmbian} -gt 0 ] || [ ! -d "/sys/class/thermal/thermal_zone0/" ]; then
   network_rx=$(ifconfig | grep -m1 'RX packets' | awk '{ print $6$7 }' | sed 's/[()]//g')
   network_tx=$(ifconfig | grep -m1 'TX packets' | awk '{ print $6$7 }' | sed 's/[()]//g')
 else
-  network_rx=$(ifconfig eth0 | grep 'RX packets' | awk '{ print $6$7 }' | sed 's/[()]//g')
-  network_tx=$(ifconfig eth0 | grep 'TX packets' | awk '{ print $6$7 }' | sed 's/[()]//g')
+  network_rx=$(ifconfig ${network_active_if} | grep 'RX packets' | awk '{ print $6$7 }' | sed 's/[()]//g')
+  network_tx=$(ifconfig ${network_active_if} | grep 'TX packets' | awk '{ print $6$7 }' | sed 's/[()]//g')
 fi
 
 # Bitcoin blockchain
@@ -287,6 +290,10 @@ else
     ln_peers="$(echo "${ln_getInfo}" | jq -r '.num_peers')" 2>/dev/null
     ln_channelInfo="${ln_channels_online}/${ln_channels_total} Channels ${ln_channelbalance} sat${ln_channelbalance_pending}"
     ln_peersInfo="${color_purple}${ln_peers} ${color_gray}peers"
+    ln_dailyfees="$(sudo -u bitcoin /usr/local/bin/lncli --macaroonpath=${lnd_macaroon_dir}/readonly.macaroon --tlscertpath=${lnd_dir}/tls.cert feereport | jq -r '.day_fee_sum')" 2>/dev/null
+    ln_weeklyfees="$(sudo -u bitcoin /usr/local/bin/lncli --macaroonpath=${lnd_macaroon_dir}/readonly.macaroon --tlscertpath=${lnd_dir}/tls.cert feereport | jq -r '.week_fee_sum')" 2>/dev/null
+    ln_monthlyfees="$(sudo -u bitcoin /usr/local/bin/lncli --macaroonpath=${lnd_macaroon_dir}/readonly.macaroon --tlscertpath=${lnd_dir}/tls.cert feereport | jq -r '.month_fee_sum')" 2>/dev/null
+    ln_feeReport="Fee Report: ${color_green}${ln_dailyfees}-${ln_weeklyfees}-${ln_monthlyfees} ${color_gray}sat (D-W-M)"
   fi
 fi
 
@@ -308,8 +315,9 @@ ${color_yellow}     / ,'      ${color_gray}${public_addr_pre}${public_color}${pu
 ${color_yellow}    /,'        ${color_gray}
 ${color_yellow}   /'          ${color_gray}LND ${color_green}${ln_version} ${ln_baseInfo}
 ${color_yellow}               ${color_gray}${ln_channelInfo} ${ln_peersInfo}
+${color_yellow}               ${color_gray}${ln_feeReport}
 ${color_yellow}
-${color_yellow}${ln_publicColor}${ln_external}${color_red}
+${color_yellow}${ln_publicColor}${ln_external}${color_gray}
 
 " \
 "RaspiBlitz v${codeVersion}" \
@@ -324,4 +332,29 @@ elif [ ${#powerFAIL} -gt 0 ] && [ ${powerFAIL} -gt 0 ]; then
   echo "Weak power supply detected - run 'Hardware Test' in menu"
 elif [ ${#ups} -gt 1 ] && [ "${upsStatus}" = "n/a" ]; then
   echo "UPS service activated but not running"
+else
+
+  # cheching status of apps and display if in sync or problems
+  appInfoLine=""
+
+  # Electrum Server - electrs
+  if [ "${ElectRS}" = "on" ]; then
+    source <(sudo /home/admin/config.scripts/bonus.electrs.sh status)
+    if [ "${isSynced}" = "0" ]; then
+      appInfoLine="Electrum: ${infoSync}"
+    fi
+  fi
+
+  # BTC RPC EXPLORER
+  if [ "${BTCRPCexplorer}" = "on" ]; then
+    source <(sudo /home/admin/config.scripts/bonus.btc-rpc-explorer.sh status)
+    if [ "${isIndexed}" = "0" ]; then
+      appInfoLine="BTC-RPC-Explorer: ${indexInfo}"
+    fi
+  fi
+
+  if [ ${#appInfoLine} -gt 0 ]; then
+    echo "${appInfoLine}"
+  fi
+  
 fi
