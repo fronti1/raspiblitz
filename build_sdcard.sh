@@ -2,7 +2,7 @@
 #########################################################################
 # Build your SD card image based on:
 # Raspbian Buster Lite  (2019-09-26)
-# as the desktop is too much
+# as the desktop is too much 
 # https://www.raspberrypi.org/downloads/raspbian/
 # SHA256: 2c4067d59acf891b7aa1683cb1918da78d76d2552c02749148d175fa7f766842
 ##########################################################################
