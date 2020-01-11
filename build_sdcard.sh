@@ -1,7 +1,8 @@
 #!/bin/bash
 #########################################################################
 # Build your SD card image based on:
-# Raspbian Buster Desktop (2019-09-26)
+# Raspbian Buster Lite  (2019-09-26)
+# as the desktop is too much
 # https://www.raspberrypi.org/downloads/raspbian/
 # SHA256: 2c4067d59acf891b7aa1683cb1918da78d76d2552c02749148d175fa7f766842
 ##########################################################################
@@ -10,7 +11,7 @@
 
 echo ""
 echo "*****************************************"
-echo "* RASPIBLITZ SD CARD IMAGE SETUP v1.4   *"
+echo "* RASPIBLITZ SD CARD IMAGE SETUP v1.4 - fronti  *"
 echo "*****************************************"
 echo ""
 
@@ -19,7 +20,7 @@ echo ""
 echo "*** CHECK INPUT PARAMETERS ***"
 wantedBranch="$1"
 if [ ${#wantedBranch} -eq 0 ]; then
-  wantedBranch="master"
+  wantedBranch="1.4"
 fi
 echo "will use code from branch --> '${wantedBranch}'"
 
@@ -29,7 +30,7 @@ echo "will use code from branch --> '${wantedBranch}'"
 echo "*** CHECK INPUT PARAMETERS ***"
 githubUser="$2"
 if [ ${#githubUser} -eq 0 ]; then
-  githubUser="rootzoll"
+  githubUser="fronti1"
 fi
 echo "will use code from user --> '${githubUser}'"
 
@@ -117,9 +118,14 @@ if [ "${baseImage}" = "raspbian" ] || [ "${baseImage}" = "dietpi" ] ; then
 fi
 
 # remove some (big) packages that are not needed
+# 
 sudo apt-get remove -y --purge libreoffice* oracle-java* chromium-browser nuscratch scratch sonic-pi minecraft-pi plymouth python2
 sudo apt-get clean
 sudo apt-get -y autoremove
+
+# make sure pip3 (for later usage) is installed
+
+sudo apt-get install python3-pip
 
 # make sure /usr/bin/python exists (and calls Python3.7 in Debian Buster)
 sudo update-alternatives --install /usr/bin/python python /usr/bin/python3.7 1
@@ -148,6 +154,8 @@ if [ "${baseImage}" = "raspbian" ]; then
   # set WIFI country so boot does not block
   sudo raspi-config nonint do_wifi_country US
   # see https://github.com/rootzoll/raspiblitz/issues/428#issuecomment-472822840
+  # check if not set?
+  
   echo "max_usb_current=1" | sudo tee -a /boot/config.txt
   # run fsck on sd boot partition on every startup to prevent "maintenance login" screen
   # see: https://github.com/rootzoll/raspiblitz/issues/782#issuecomment-564981630
@@ -299,7 +307,7 @@ sudo apt install -y net-tools
 #to display hex codes
 sudo apt install -y xxd
 # setuptools needed for Nyx
-sudo pip install setuptools
+sudo pip3 install setuptools
 # netcat for 00infoBlitz.sh
 sudo apt install -y netcat
 # install OpenSSH client + server
@@ -603,7 +611,7 @@ sudo chown -R admin /home/admin
 # This Python3 virtualenv includes the site-packages because access to the PyQt5
 # libs - which are installed system-wide (via apt-get) - is needed for TouchUI.
 sudo -u admin bash -c "cd; python3 -m venv --system-site-packages python3-env-lnd"
-sudo -u admin bash -c "/home/admin/python3-env-lnd/bin/python3 -m pip install grpcio grpcio-tools googleapis-common-protos pathlib2"
+sudo -u admin bash -c "/home/admin/python3-env-lnd/bin/python3 -m pip3 install grpcio grpcio-tools googleapis-common-protos pathlib2"
 echo ""
 
 echo ""
