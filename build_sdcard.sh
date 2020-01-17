@@ -2,7 +2,7 @@
 #########################################################################
 # Build your SD card image based on:
 # Raspbian Buster Lite  (2019-09-26)
-# as the desktop is too much 
+# as the desktop has to much unneded packes
 # https://www.raspberrypi.org/downloads/raspbian/
 # SHA256: 2c4067d59acf891b7aa1683cb1918da78d76d2552c02749148d175fa7f766842
 ##########################################################################
@@ -10,9 +10,9 @@
 ##########################################################################
 
 echo ""
-echo "*****************************************"
+echo "*************************************************"
 echo "* RASPIBLITZ SD CARD IMAGE SETUP v1.4 - fronti  *"
-echo "*****************************************"
+echo "*************************************************"
 echo ""
 
 # 1st optional parameter is the BRANCH to get code from when
@@ -119,13 +119,22 @@ fi
 
 # remove some (big) packages that are not needed
 # 
+# in lite not needed but i keep these (to make sure it also work on base image)
 sudo apt-get remove -y --purge libreoffice* oracle-java* chromium-browser nuscratch scratch sonic-pi minecraft-pi plymouth python2
 sudo apt-get clean
 sudo apt-get -y autoremove
 
 # make sure pip3 (for later usage) is installed
 
-sudo apt-get install python3-pip
+sudo apt-get -y install python3-pip
+sudo apt-get -y libdrm-amdgpu1 libdrm-common libdrm-nouveau2 libdrm-radeon1 libdrm2 
+# for X11 and display
+sudo apt-get -y libegl-mesa0 libegl1 libegl1-mesa libepoxy0 libevdev2 libfontenc1
+sudo apt-get -y libgbm1 libgl1 libgl1-mesa-dri libglapi-mesa libglvnd0 libglx-mesa0 
+sudo apt-get -y libglx0 libice6 libllvm8 libmtdev1 libpciaccess0 libpixman-1-0  libsensors-config libsensors5 libsm6 libunwind8 libwayland-client0 libwayland-server0 libx11-xcb1 libxaw7 libxcb-dri2-0 libxcb-dri3-0
+sudo apt-get -y   libxcb-glx0 libxcb-present0 libxcb-sync1 libxcb-xfixes0 libxdamage1 libxfixes3 libxfont2 libxi6 libxkbfile1 libxmu6 libxpm4 libxshmfence1
+sudo apt-get -y   libxt6 libxxf86vm1 x11-common x11-xkb-utils xfonts-base xfonts-encodings xfonts-utils xserver-common xserver-xorg-core
+
 
 # make sure /usr/bin/python exists (and calls Python3.7 in Debian Buster)
 sudo update-alternatives --install /usr/bin/python python /usr/bin/python3.7 1
