@@ -40,9 +40,9 @@ if [ ${lcdrotate} -gt 0 ]; then
 fi
 
 echo "map touchscreen to on/off"
-tochscreenMenu='off'
+touchscreenMenu='off'
 if [ ${touchscreen} -gt 0 ]; then 
-  tochscreenMenu='on'
+  touchscreenMenu='on'
 fi
 
 echo "check autopilot by lnd.conf"
@@ -66,7 +66,7 @@ l 'Lightning Loop' ${loop} \
 5 'RTL Webinterface' ${rtlWebinterface} \
 b 'BTC-RPC-Explorer' ${BTCRPCexplorer} \
 6 'LND Auto-Unlock' ${autoUnlock} \
-9 'Touchscreen' ${tochscreenMenu} \
+9 'Touchscreen' ${touchscreenMenu} \
 r 'LCD Rotate' ${lcdrotateMenu} \
 e 'Electrum Rust Server' ${ElectRS} \
 p 'BTCPayServer' ${BTCPayServer} \
@@ -84,7 +84,7 @@ b 'BTC-RPC-Explorer' ${BTCRPCexplorer} \
 6 'LND Auto-Unlock' ${autoUnlock} \
 7 'BTC UPnP (AutoNAT)' ${networkUPnP} \
 8 'LND UPnP (AutoNAT)' ${autoNatDiscovery} \
-9 'Touchscreen' ${tochscreenMenu} \
+9 'Touchscreen' ${touchscreenMenu} \
 r 'LCD Rotate' ${lcdrotateMenu} \
 e 'Electrum Rust Server' ${ElectRS} \
 p 'BTCPayServer' ${BTCPayServer} \
@@ -507,7 +507,7 @@ if [ "${BTCPayServer}" != "${choice}" ]; then
   if [ "${choice}" =  "on" ]; then
     if [ ${errorOnInstall} -eq 0 ]; then
       source /home/btcpay/.btcpayserver/Main/settings.config
-      if [ ${externalurl} = "https://" ]; then
+      if [ ${externalurl} = "https://localhost" ]; then
         localip=$(ip addr | grep 'state UP' -A2 | tail -n1 | awk '{print $2}' | cut -f1 -d'/')
         externalurl="https://$localip\n
 Will need to accept the self-signed certificate in the \
@@ -550,10 +550,8 @@ if [ "${lndmanage}" != "${choice}" ]; then
   if [ "${choice}" =  "on" ]; then
     whiptail --title " Installed lndmanage " --msgbox "\
 Usage: https://github.com/bitromortac/lndmanage/blob/master/README.md\n
-Start with the line:
-'cd lndmanage & source venv/bin/activate & lndmanage'\n
-To exit: type 'deactivate' and press ENTER
-" 12 75
+To start type: 'manage' in the command line.
+" 9 75
   fi
   needsReboot=0
 else 

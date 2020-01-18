@@ -2,6 +2,7 @@
 # see issue: https://github.com/rootzoll/raspiblitz/issues/646
 # and issue: https://github.com/rootzoll/raspiblitz/issues/809
 # to work it needs to be based on Raspbian Desktop base image
+# to check debug logs: sudo cat /home/pi/.cache/lxsession/LXDE-pi/run.log
 
 source /home/admin/raspiblitz.info
 source /mnt/hdd/raspiblitz.conf
@@ -98,15 +99,9 @@ EOF
   # remove minimize, maximize, close from titlebar
   sudo sed -i -E 's/titleLayout>LIMC/titleLayout>L/g' /etc/xdg/openbox/lxde-pi-rc.xml
 
-  # Copy over the macaroons
-  sudo mkdir -p /home/pi/.lnd/data/chain/bitcoin/mainnet/
-  sudo chmod 700 /home/pi/.lnd/
-  sudo ln -nsf /home/admin/.lnd/tls.cert /home/pi/.lnd/
-  sudo cp /home/admin/.lnd/data/chain/bitcoin/mainnet/readonly.macaroon /home/pi/.lnd/data/chain/bitcoin/mainnet/
-  sudo cp /home/admin/.lnd/data/chain/bitcoin/mainnet/invoice.macaroon /home/pi/.lnd/data/chain/bitcoin/mainnet/
-  sudo chmod 600 /home/pi/.lnd/data/chain/bitcoin/mainnet/readonly.macaroon
-  sudo chmod 600 /home/pi/.lnd/data/chain/bitcoin/mainnet/invoice.macaroon
-  sudo chown -R pi:pi /home/pi/.lnd/
+  # make sure that the directory for tls & macaroons exists
+  # fresh copy will be put there by bootstrap script on every start- restart needed
+  sudo mkdir -p /home/pi/.lnd 2>/dev/null
 
   # rotate touchscreen based on if LCD is rotated
   if [ "${lcdrotate}" = "1" ]; then
@@ -159,9 +154,6 @@ if [ "$1" = "0" ] || [ "$1" = "off" ]; then
 
   # add again 00infoLCD.sh to .bashrc of pi user
   sudo sed -i s'/^#exec $SCRIPT/exec $SCRIPT/' /home/pi/.bashrc
-
-  # remove copy of macaroons
-  sudo rm -rf /home/pi/.lnd/
 
   # remove old pi autostart
   sudo rm -f /home/pi/autostart.sh

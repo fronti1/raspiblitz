@@ -22,7 +22,7 @@ fi
 
 # check if started with sudo
 if [ "$EUID" -ne 0 ]; then 
-  echo "ERROR='missing sudo'"
+  echo "error='missing sudo'"
   exit 1
 fi
 
@@ -47,7 +47,7 @@ fi
 
 # basics
 isMounted=$(sudo df | grep -c /mnt/hdd)
-isBTRFS=$(sudo btrfs subvolume list /mnt/hdd 2>/dev/null | grep -c "WORKINGDIR")
+isBTRFS=$(sudo btrfs filesystem show 2>/dev/null| grep -c 'BLITZSTORAGE')
 isRaid=$(btrfs filesystem df /mnt/hdd 2>/dev/null | grep -c "Data, RAID1")
 isSSD=$(sudo cat /sys/block/sda/queue/rotational 2>/dev/null | grep -c 0)
 
@@ -119,26 +119,29 @@ if [ "$1" = "status" ]; then
 
         # temp mount data drive
         sudo mkdir -p /mnt/hdd
-        sudo mount /dev/${hdd}1 /mnt/hdd
-
+        mountError=$(sudo mount -o degraded /dev/${hdd}1 /mnt/hdd 2>&1)
         isTempMounted=$(df | grep /mnt/hdd | grep -c ${hdd})
-        if [ ${isTempMounted} -eq 0 ]; then
+
+        # check for mount error
+        if [ ${#mountError} -gt 0 ] || [ ${isTempMounted} -eq 0 ]; then
           echo "hddError='data mount failed'"
+
+        # check for recoverable RaspiBlitz data (if config file exists) and raid 
         else
-          # check for recoverable RaspiBlitz data (if config file exists)
-          hddRaspiData=$(sudo ls -l /mnt/hdd${subVolumeDir} | grep -c raspiblitz.conf)
-          echo "hddRaspiData=${hddRaspiData}"
-          sudo umount /mnt/hdd
+            hddRaspiData=$(sudo ls -l /mnt/hdd${subVolumeDir} | grep -c raspiblitz.conf)
+            isRaid=$(btrfs filesystem df /mnt/hdd 2>/dev/null | grep -c "Data, RAID1")
+            echo "hddRaspiData=${hddRaspiData}"
+            sudo umount /mnt/hdd
         fi
 
         # temp storage data drive
         sudo mkdir -p /mnt/storage
         if [ "${hddFormat}" = "btrfs" ]; then
           # in btrfs setup the second partition is storage partition
-          sudo mount /dev/${hdd}2 /mnt/storage
+          sudo mount /dev/${hdd}2 /mnt/storage 2>/dev/null
         else
           # in ext4 setup the first partition is also the storage partition
-          sudo mount /dev/${hdd}1 /mnt/storage
+          sudo mount /dev/${hdd}1 /mnt/storage 2>/dev/null
         fi
         isTempMounted=$(df | grep /mnt/storage | grep -c ${hdd})
         if [ ${isTempMounted} -eq 0 ]; then
@@ -684,10 +687,6 @@ if [ "$1" = "raid" ]; then
      fi
      >&2 echo "# RAID - Adding raid drive to RaspiBlitz data drive"
   elif [ "$2" = "off" ]; then
-     if [ ${isRaid} -eq 0 ]; then
-       >&2 echo "# OK - already OFF"
-       exit
-     fi
      >&2 echo "# RAID - Removing raid drive to RaspiBlitz data drive"  
   else
      >&2 echo "# possible 2nd parameter is 'on' or 'off'"  
@@ -775,18 +774,31 @@ fi
 if [ "$1" = "raid" ] && [ "$2" = "off" ]; then
  
   # checking if BTRFS mode
-  isBTRFS=$(lsblk -o FSTYPE,MOUNTPOINT | grep /mnt/hdd | awk '$1=$1' | cut -d " " -f 1 | grep -c btrfs)
+  isBTRFS=$(sudo btrfs filesystem show 2>/dev/null| grep -c 'BLITZSTORAGE')
   if [ ${isBTRFS} -eq 0 ]; then
     echo "error='raid only BTRFS'"
     exit 1
   fi
 
+  deviceToBeRemoved="/dev/${raidUsbDev}"
+  # just in case be able to remove missing drive
+  if [ ${#raidUsbDev} -eq 0 ]; then
+    deviceToBeRemoved="missing"
+  fi
+
   >&2 echo "# removing USB DEV from RAID"
   sudo btrfs balance start -mconvert=dup -dconvert=single /mnt/hdd 1>/dev/null
-  sudo btrfs device remove /dev/${raidUsbDev} /mnt/hdd 1>/dev/null
+  sudo btrfs device remove ${deviceToBeRemoved} /mnt/hdd 1>/dev/null
   
-  >&2 echo "# OK - RaspiBlitz data is not running in RAID1 anymore - you can remove ${raidUsbDev}"
-  exit 0
+  isRaid=$(btrfs filesystem df /mnt/hdd 2>/dev/null | grep -c "Data, RAID1")
+  if [ ${isRaid} -eq 0 ]; then
+    >&2 echo "# OK - RaspiBlitz data is not running in RAID1 anymore"
+    exit 0
+  else
+    >&2 echo "# FAIL - was not able to remove RAID device"
+    echo "error='fail'"
+    exit 1
+  fi
 
 fi
 
@@ -946,7 +958,7 @@ if [ "$1" = "tempmount" ]; then
     sudo mkdir -p /mnt/hdd 1>/dev/null
     sudo mkdir -p /mnt/storage 1>/dev/null
     sudo mkdir -p /mnt/temp 1>/dev/null
-    sudo mount -t btrfs -o subvol=WORKINGDIR /dev/${hdd}1 /mnt/hdd
+    sudo mount -t btrfs -o degraded -o subvol=WORKINGDIR /dev/${hdd}1 /mnt/hdd
     sudo mount -t btrfs -o subvol=WORKINGDIR /dev/${hdd}2 /mnt/storage
     sudo mount -o uid=${bitcoinUID},gid=${bitcoinGID} /dev/${hdd}3 /mnt/temp 
 
