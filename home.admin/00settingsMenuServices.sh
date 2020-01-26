@@ -106,60 +106,24 @@ fi
 needsReboot=0
 anychange=0
 
-# AUTOPILOT process choice
-choice="off"; check=$(echo "${CHOICES}" | grep -c "1")
-if [ ${check} -eq 1 ]; then choice="on"; fi
-if [ "${autoPilot}" != "${choice}" ]; then
-  echo "Autopilot Setting changed .."
-  anychange=1
-  sudo /home/admin/config.scripts/lnd.autopilot.sh ${choice}
-  needsReboot=1
-else 
-  echo "Autopilot Setting unchanged."
-fi
-
-# LOOP process choice
-choice="off"; check=$(echo "${CHOICES}" | grep -c "l")
-if [ ${check} -eq 1 ]; then choice="on"; fi
-if [ "${loop}" != "${choice}" ]; then
-  echo "Loop Setting changed .."
-  anychange=1
-  /home/admin/config.scripts/bonus.loop.sh ${choice}
-  errorOnInstall=$?
-  if [ "${choice}" =  "on" ]; then
-    if [ ${errorOnInstall} -eq 0 ]; then
-      sudo systemctl start loopd
-      if [ ${#GOPATH} -eq 0 ]; then
-        whiptail --title " Installed the Lightning Loop Service (loopd) " --msgbox "\
-Usage and examples: https://github.com/lightninglabs/loop#loop-out-swaps\n
-Start from the command line after the reboot.
-Use the command 'loop' to see the options.
-" 11 56
-        needsReboot=1
-      else
-        whiptail --title " Installed the Lightning Loop Service (loopd) " --msgbox "\
-Usage and examples: https://github.com/lightninglabs/loop#loop-out-swaps\n
-Use the command 'loop' to see the options.
-" 10 56
-        needsReboot=0
-      fi
-    else
-      l1="FAILED to install Lightning LOOP"
-      l2="Try manual install in the terminal with:"
-      l3="/home/admin/config.scripts/bonus.loop.sh on"
-      dialog --title 'FAIL' --msgbox "${l1}\n${l2}\n${l3}" 7 65
-    fi
-  fi
-else 
-  echo "Loop Setting unchanged."
-fi
-
-# TESTNET process choice
+# TESTNET process choice - KEEP FIRST IN ORDER
 choice="main"; check=$(echo "${CHOICES}" | grep -c "2")
 if [ ${check} -eq 1 ]; then choice="test"; fi
 if [ "${chain}" != "${choice}" ]; then
   if [ "${network}" = "litecoin" ] && [ "${choice}"="test" ]; then
      dialog --title 'FAIL' --msgbox 'Litecoin-Testnet not available.' 5 25
+  elif [ "${BTCRPCexplorer}" = "on" ]; then
+     dialog --title 'NOTICE' --msgbox 'Please turn off BTC-RPC-Explorer FIRST\nbefore changing testnet.' 6 45
+     exit 1
+  elif [ "${BTCPayServer}" = "on" ]; then
+     dialog --title 'NOTICE' --msgbox 'Please turn off BTC-Pay-Server FIRST\nbefore changing testnet.' 6 45
+     exit 1
+  elif [ "${ElectRS}" = "on" ]; then
+     dialog --title 'NOTICE' --msgbox 'Please turn off Electrum-Rust-Server FIRST\nbefore changing testnet.' 6 48
+     exit 1
+   elif [ "${loop}" = "on" ]; then
+     dialog --title 'NOTICE' --msgbox 'Please turn off Loop-Service FIRST\nbefore changing testnet.' 6 48
+     exit 1
   else
     echo "Testnet Setting changed .."
     anychange=1
@@ -225,6 +189,54 @@ if [ "${chain}" != "${choice}" ]; then
   fi
 else 
   echo "Testnet Setting unchanged."
+fi
+
+# AUTOPILOT process choice
+choice="off"; check=$(echo "${CHOICES}" | grep -c "1")
+if [ ${check} -eq 1 ]; then choice="on"; fi
+if [ "${autoPilot}" != "${choice}" ]; then
+  echo "Autopilot Setting changed .."
+  anychange=1
+  sudo /home/admin/config.scripts/lnd.autopilot.sh ${choice}
+  needsReboot=1
+else 
+  echo "Autopilot Setting unchanged."
+fi
+
+# LOOP process choice
+choice="off"; check=$(echo "${CHOICES}" | grep -c "l")
+if [ ${check} -eq 1 ]; then choice="on"; fi
+if [ "${loop}" != "${choice}" ]; then
+  echo "Loop Setting changed .."
+  anychange=1
+  /home/admin/config.scripts/bonus.loop.sh ${choice}
+  errorOnInstall=$?
+  if [ "${choice}" =  "on" ]; then
+    if [ ${errorOnInstall} -eq 0 ]; then
+      sudo systemctl start loopd
+      if [ ${#GOPATH} -eq 0 ]; then
+        whiptail --title " Installed the Lightning Loop Service (loopd) " --msgbox "\
+Usage and examples: https://github.com/lightninglabs/loop#loop-out-swaps\n
+Start from the command line after the reboot.
+Use the command 'loop' to see the options.
+" 11 56
+        needsReboot=1
+      else
+        whiptail --title " Installed the Lightning Loop Service (loopd) " --msgbox "\
+Usage and examples: https://github.com/lightninglabs/loop#loop-out-swaps\n
+Use the command 'loop' to see the options.
+" 10 56
+        needsReboot=0
+      fi
+    else
+      l1="FAILED to install Lightning LOOP"
+      l2="Try manual install in the terminal with:"
+      l3="/home/admin/config.scripts/bonus.loop.sh on"
+      dialog --title 'FAIL' --msgbox "${l1}\n${l2}\n${l3}" 7 65
+    fi
+  fi
+else 
+  echo "Loop Setting unchanged."
 fi
 
 # Dynamic Domain
@@ -344,7 +356,6 @@ ${TOR_ADDRESS}
       dialog --title 'FAIL' --msgbox "${l1}\n${l2}\n${l3}" 7 65
     fi
   fi
-  needsReboot=0
 else
   echo "RTL Webinterface Setting unchanged."
 fi
@@ -364,7 +375,7 @@ if [ "${BTCRPCexplorer}" != "${choice}" ]; then
       if [ "${runBehindTor}" = "on" ]; then
         TOR_ADDRESS=$(sudo cat /mnt/hdd/tor/btc-rpc-explorer/hostname)
         whiptail --title " Installed BTC-RPC-Explorer " --msgbox "\
-The txindex needs to be created before BTC-RPC-Explorer can be active.
+The txindex may need to be created before BTC-RPC-Explorer can be active.
 Takes ~7 hours on a RPi4 with SSD.
 Monitor the progress on the LCD or with 'INFO' in main menu.\n
 BTC-RPC-Explorer will be available on the following URL in your local web browser:\n
@@ -374,13 +385,14 @@ ${TOR_ADDRESS}
 " 18 75 
       else
         whiptail --title " Installed BTC-RPC-Explorer " --msgbox "\
-The txindex needs to be created before BTC-RPC-Explorer can be active.
+The txindex may need to be created before BTC-RPC-Explorer can be active.
 Takes ~7 hours on a RPi4 with SSD.
 Monitor the progress on the LCD or with 'INFO' in main menu.\n
 BTC-RPC-Explorer will be available on the following URL in your local web browser:\n
 ---> http://${localip}:3002
 " 14 75 
       fi
+      needsReboot=1
     else
       l1="!!! FAIL on BTC-RPC-Explorer install !!!"
       l2="Try manual install on terminal after reboot with:"
@@ -388,7 +400,6 @@ BTC-RPC-Explorer will be available on the following URL in your local web browse
       dialog --title 'FAIL' --msgbox "${l1}\n${l2}\n${l3}" 7 65
     fi
   fi
-  needsReboot=0
 else
   echo "BTC-RPC-Explorer Setting unchanged."
 fi
@@ -420,6 +431,9 @@ if [ "${touchscreen}" != "${choice}" ]; then
   echo "Touchscreen Setting changed .."
   anychange=1
   sudo /home/admin/config.scripts/blitz.touchscreen.sh ${choice}
+  if [ "${choice}" == "1" ]; then
+    dialog --title 'Touchscreen Activated' --msgbox 'Touchscreen was activated - will reboot.\n\nAfter reboot use the SCREEN option in main menu to calibrate the touchscreen.' 9 48
+  fi
   needsReboot=1
 else
   echo "Touchscreen Setting unchanged."
@@ -491,7 +505,6 @@ https://github.com/openoms/bitcoin-tutorials/tree/master/electrs#monitor-electrs
       dialog --title 'FAIL' --msgbox "${l1}\n${l2}\n${l3}" 7 65
     fi
   fi
-  needsReboot=0
 else
   echo "ElectRS Setting unchanged."
 fi
@@ -507,7 +520,7 @@ if [ "${BTCPayServer}" != "${choice}" ]; then
   if [ "${choice}" =  "on" ]; then
     if [ ${errorOnInstall} -eq 0 ]; then
       source /home/btcpay/.btcpayserver/Main/settings.config
-      if [ ${externalurl} = "https://localhost" ]; then
+      if [ "${externalurl}" = "https://localhost" ]; then
         localip=$(ip addr | grep 'state UP' -A2 | tail -n1 | awk '{print $2}' | cut -f1 -d'/')
         externalurl="https://$localip\n
 Will need to accept the self-signed certificate in the \
@@ -535,7 +548,6 @@ ${TOR_ADDRESS}
       dialog --title 'FAIL' --msgbox "${l1}\n${l2}\n${l3}" 7 65
     fi
   fi
-  needsReboot=0
 else
   echo "BTCPayServer setting not changed."
 fi
@@ -546,14 +558,14 @@ if [ ${check} -eq 1 ]; then choice="on"; fi
 if [ "${lndmanage}" != "${choice}" ]; then
   echo "lndmanage Setting changed .."
   anychange=1
-  sudo /home/admin/config.scripts/bonus.lndmanage.sh ${choice}
+  sudo -u admin /home/admin/config.scripts/bonus.lndmanage.sh ${choice}
   if [ "${choice}" =  "on" ]; then
     whiptail --title " Installed lndmanage " --msgbox "\
-Usage: https://github.com/bitromortac/lndmanage/blob/master/README.md\n
+Usage: https://github.com/bitromortac/lndmanage/blob/master/README.md
+Have at least one channel active to run it without error.
 To start type: 'manage' in the command line.
 " 9 75
   fi
-  needsReboot=0
 else 
   echo "lndmanage setting unchanged."
 fi

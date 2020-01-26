@@ -39,6 +39,7 @@ network=""
 chain=""
 setupStep=0
 fsexpanded=0
+lcd2hdmi="off"
 
 # try to load old values if available (overwrites defaults)
 source ${infoFile} 2>/dev/null
@@ -50,6 +51,7 @@ echo "message=" >> $infoFile
 echo "network=${network}" >> $infoFile
 echo "chain=${chain}" >> $infoFile
 echo "fsexpanded=${fsexpanded}" >> $infoFile
+echo "lcd2hdmi=${lcd2hdmi}" >> $infoFile
 echo "setupStep=${setupStep}" >> $infoFile
 if [ "${setupStep}" != "100" ]; then
   echo "hostname=${hostname}" >> $infoFile
@@ -136,6 +138,22 @@ if [ ${afterSetupScriptExists} -eq 1 ]; then
   echo "DONE wait 6 secs ... one more reboot needed ... "
   sudo shutdown -r now
   sleep 100
+fi
+
+################################
+# FORCED SWITCH TO HDMI
+# if a file called 'hdmi' gets
+# placed onto the boot part of
+# the sd card - switch to hdmi
+################################
+
+forceHDMIoutput=$(sudo ls /boot/hdmi 2>/dev/null | grep -c hdmi)
+if [ ${forceHDMIoutput} -eq 1 ]; then
+  # delete that file (to prevent loop)
+  sudo rm /boot/hdmi
+  # switch to HDMI what will trigger reboot
+  sudo /home/admin/config.scripts/blitz.lcd.sh hdmi on
+  exit 0
 fi
 
 ################################
@@ -250,6 +268,8 @@ if [ ${isMounted} -eq 0 ]; then
     echo "Found valid configuration" >> $logFile
     sed -i "s/^state=.*/state=recovering/g" ${infoFile}
     sed -i "s/^message=.*/message='Starting Recover'/g" ${infoFile}
+    sed -i "s/^chain=.*/chain=${chain}/g" ${infoFile}
+    sed -i "s/^network=.*/network=${network}/g" ${infoFile}
     echo "Calling Data Migration .." >> $logFile
     sudo /home/admin/_bootstrap.migration.sh
     echo "Calling Provisioning .." >> $logFile
@@ -395,23 +415,21 @@ if [ ${#network} -gt 0 ] && [ ${#chain} -gt 0 ]; then
     echo "WARN: could not get value 'rpcuser' from blockchain conf" >> $logFile
   fi
 
-  echo "updating admin user LND data" >> $logFile
+  echo "updating/cleaning admin user LND data" >> $logFile
+  sudo rm -R /home/admin/.lnd 2>/dev/null
   sudo mkdir -p /home/admin/.lnd/data/chain/${network}/${chain}net 2>/dev/null
   sudo cp /mnt/hdd/lnd/lnd.conf /home/admin/.lnd/lnd.conf 2>> $logFile
-  sudo chown admin:admin /home/admin/.lnd/lnd.conf 2>> $logFile
   sudo cp /mnt/hdd/lnd/tls.cert /home/admin/.lnd/tls.cert 2>> $logFile
-  sudo chown admin:admin /home/admin/.lnd/tls.cert 2>> $logFile
-  sudo cp /mnt/hdd/lnd/data/chain/${network}/${chain}net/admin.macaroon /home/admin/.lnd/data/chain/${network}/${chain}net/admin.macaroon 2>/dev/null
-  sudo chown admin:admin /home/admin/.lnd/data/chain/${network}/${chain}net/admin.macaroon 2>> $logFile
+  sudo sh -c "cat /mnt/hdd/lnd/data/chain/${network}/${chain}net/admin.macaroon > /home/admin/.lnd/data/chain/${network}/${chain}net/admin.macaroon" 2>> $logFile
+  sudo chown admin:admin -R /home/admin/.lnd 2>> $logFile
 
-  echo "updating pi user LND data (just read & invoice)" >> $logFile
-  sudo mkdir -p /home/pi/.lnd/data/chain/${network}/${chain}net/ 2>/dev/null
+  echo "updating/cleaning pi user LND data (just read & invoice)" >> $logFile
+  sudo rm -R /home/pi/.lnd 2>/dev/null
+  sudo mkdir -p /home/pi/.lnd/data/chain/${network}/${chain}net/ 2>> $logFile
   sudo cp /mnt/hdd/lnd/tls.cert /home/pi/.lnd/tls.cert 2>> $logFile
-  sudo chown pi:pi /home/pi/.lnd/tls.cert 2>> $logFile
-  sudo cp /mnt/hdd/lnd/data/chain/${network}/${chain}net/readonly.macaroon /home/pi/.lnd/data/chain/${network}/${chain}net/readonly.macaroon 2>/dev/null
-  sudo chown pi:pi /home/pi/.lnd/data/chain/${network}/${chain}net/readonly.macaroon 2>> $logFile
-  sudo cp /mnt/hdd/lnd/data/chain/${network}/${chain}net/invoice.macaroon /home/pi/.lnd/data/chain/${network}/${chain}net/invoice.macaroon 2>/dev/null
-  sudo chown pi:pi /home/pi/.lnd/data/chain/${network}/${chain}net/invoice.macaroon 2>> $logFile
+  sudo sh -c "cat /mnt/hdd/lnd/data/chain/${network}/${chain}net/readonly.macaroon > /home/pi/.lnd/data/chain/${network}/${chain}net/readonly.macaroon" 2>> $logFile
+  sudo sh -c "cat /mnt/hdd/lnd/data/chain/${network}/${chain}net/invoice.macaroon > /home/pi/.lnd/data/chain/${network}/${chain}net/invoice.macaroon" 2>> $logFile
+  sudo chown pi:pi -R /home/pi/.lnd 2>> $logFile
 
 else 
   echo "skipping admin user LND data update" >> $logFile
@@ -517,6 +535,10 @@ if [ "${baseImage}" = "raspbian" ] ; then
     echo "" > /var/log/syslog
   fi
 fi
+
+# mark that node is ready now
+sed -i "s/^state=.*/state=ready/g" ${infoFile}
+sed -i "s/^message=.*/message='Node Running'/g" ${infoFile}
 
 echo "DONE BOOTSTRAP" >> $logFile
 exit 0

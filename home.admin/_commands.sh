@@ -30,15 +30,28 @@ function repair() {
   ./98repairMenu.sh
 }
 
+# command: hdmi
+function hdmi() {
+  echo "# SWITCHING VIDEO OUTPUT TO --> HDMI"
+  sudo /home/admin/config.scripts/blitz.lcd.sh hdmi on
+}
+
+# command: lcd
+function lcd() {
+  echo "# SWITCHING VIDEO OUTPUT TO --> LCD"
+  sudo /home/admin/config.scripts/blitz.lcd.sh hdmi off
+}
+
 # command: manage
 function manage() {
   if [ $(cat /mnt/hdd/raspiblitz.conf 2>/dev/null | grep -c "lndmanage=on") -eq 1 ]; then
     cd /home/admin/lndmanage
     source venv/bin/activate
+    echo "NOTICE: Needs at least one active channel to run without error."
     echo "to exit (venv) enter ---> deactivate"
     lndmanage
   else
-    echo "lndmanage not install - to install run:"
+    echo "lndmanage not installed - to install run:"
     echo "sudo /home/admin/config.scripts/bonus.lndmanage.sh on"
   fi
 }

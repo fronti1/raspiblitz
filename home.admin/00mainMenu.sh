@@ -66,6 +66,10 @@ if [ ${#openChannels} -gt 0 ] && [ ${openChannels} -gt 0 ]; then
   OPTIONS+=(CLOSEALL "Close all open Channels")  
 fi
 
+if [ "${touchscreen}" == "1" ]; then
+  OPTIONS+=(SCREEN "Touchscreen Calibration")  
+fi
+
 # final Options
 OPTIONS+=(REPAIR "Repair Options")
 OPTIONS+=(UPDATE "Check/Prepare RaspiBlitz Update")
@@ -115,6 +119,10 @@ case $CHOICE in
             ./00torMenu.sh
             ./00mainMenu.sh
             ;;
+        SCREEN)
+            dialog --title 'Touchscreen Calibration' --msgbox 'Choose OK and then follow the instructions on touchscreen for calibration.\n\nBest is to use a stylus for accurate touchscreen interaction.' 9 48
+            /home/admin/config.scripts/blitz.touchscreen.sh calibrate
+            ;;
         lnchannels)
             lnchannels ${network}
             echo "Press ENTER to return to main menu."
@@ -163,16 +171,8 @@ case $CHOICE in
             read key
             ./00mainMenu.sh
             ;;
-        SWITCH)
-            sudo ./95switchMainTest.sh
-            echo "Press ENTER to return to main menu."
-            read key
-            ./00mainMenu.sh
-            ;;
         MOBILE)
             ./97addMobileWallet.sh
-            echo "Press ENTER to return to main menu."
-            read key
             ./00mainMenu.sh
             ;;
         EXPORT)

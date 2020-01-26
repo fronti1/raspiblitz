@@ -11,10 +11,9 @@ source /mnt/hdd/raspiblitz.conf
 if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "-help" ]; then
  echo "STILL EXPERIMENTAL - NOT FINISHED"
  echo "the Blitz-Touch-User-Interface (BlitzTUI) feature"
- echo "blitz.touchscreen.sh [on|off]"
+ echo "blitz.touchscreen.sh [on|off|calibrate|update]"
  exit 1
 fi
-
 
 ###################
 # SWITCH ON
@@ -37,7 +36,7 @@ if [ "$1" = "1" ] || [ "$1" = "on" ]; then
   fi
 
   echo "installing BlitzTUI (including python dependencies)"
-  /home/admin/python3-env-lnd/bin/pip install BlitzTUI >/dev/null
+  /home/admin/python3-env-lnd/bin/pip install /home/admin/raspiblitz/home.admin/BlitzTUI/ 
 
   # make sure lndlibs are patched for compatibility for both Python2 and Python3
   if ! grep -Fxq "from __future__ import absolute_import" /home/admin/config.scripts/lndlibs/rpc_pb2_grpc.py; then
@@ -82,7 +81,7 @@ EOF
 #!/bin/sh
 
 unset QT_QPA_PLATFORMTHEME
-/home/admin/python3-env-lnd/bin/blitz-tui
+/home/admin/python3-env-lnd/bin/blitz-tui --debug
 EOF
   sudo chmod a+x /home/pi/autostart.sh
   sudo chown pi:pi /home/pi/autostart.sh
@@ -104,9 +103,7 @@ EOF
   sudo mkdir -p /home/pi/.lnd 2>/dev/null
 
   # rotate touchscreen based on if LCD is rotated
-  if [ "${lcdrotate}" = "1" ]; then
-    echo "LCD is rotated into default - no touchscreen rotate"
-  else
+  if [ "${lcdrotate}" = "0" ]; then
     echo "Activate Touchscreen Rotate"
     cat << EOF | sudo tee /etc/X11/xorg.conf.d/40-libinput.conf >/dev/null
 Section "InputClass"
@@ -117,6 +114,8 @@ Section "InputClass"
         Driver "libinput"
 EndSection
 EOF
+  else
+    echo "LCD is rotated into default - no touchscreen rotate"
   fi
 
   # mark touchscreen as switched ON in config
@@ -126,7 +125,60 @@ EOF
   sudo sed -i 's/^touchscreen=.*/touchscreen=1/g' /mnt/hdd/raspiblitz.conf
 
   echo "OK - a restart is needed: sudo shutdown -r now"
+  exit 0
 
+fi
+
+###################
+# UPDATE CODE
+###################
+
+if [ "$1" = "update" ]; then
+  echo "updating BlitzTUI (including python dependencies) ..."
+  /home/admin/python3-env-lnd/bin/pip install /home/admin/raspiblitz/home.admin/BlitzTUI/
+  exit 0
+fi
+
+###################
+# CALIBRATE
+###################
+
+if [ "$1" = "calibrate" ]; then
+  
+  # check that touchscreen is on
+  if [ "${touchscreen}" == "1" ]; then
+    echo "# calibrating touchscreen ..."
+    echo "error='not installed'"
+  else
+    exit 1
+  fi
+
+  # run calibrate screen
+  sudo rm /tmp/99-calibration.conf 2>/dev/null
+  sudo -u pi DISPLAY=:0.0 xinput_calibrator --output-filename /tmp/99-calibration.conf
+  
+  # check if calibration was done of user
+  calibrationDone=$(sudo ls /tmp/99-calibration.conf 2>/dev/null | grep -c "99-calibration.conf")
+  if [ ${calibrationDone} -eq 0 ]; then
+    echo "error='aborted'"
+    exit 1
+  fi
+
+  # copy the results over as configuration
+  sudo mv /tmp/99-calibration.conf /etc/X11/xorg.conf.d/99-calibration.conf
+
+  # restart touchscreen with new calibration
+  if [ "$2" == "norestart" ]; then
+    echo "# skipping touchscreen restart"
+  else
+    echo "# restarting touchscreen"
+    sudo init 3
+    sleep 3
+    sudo init 5
+  fi
+
+  echo "# OK done"
+  exit 0
 fi
 
 ###################
@@ -165,5 +217,6 @@ if [ "$1" = "0" ] || [ "$1" = "off" ]; then
   sudo sed -i 's/^touchscreen=.*/touchscreen=0/g' /mnt/hdd/raspiblitz.conf
 
   echo "OK - a restart is needed: sudo shutdown -r now"
+  exit 0
 
 fi

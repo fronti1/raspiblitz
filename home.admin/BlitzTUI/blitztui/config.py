@@ -111,7 +111,7 @@ class RaspiBlitzInfo(object):
         """load config from file"""
         parser = ConfigParser()
 
-        log.debug("loading config from file: {}".format(self.abs_path))
+        log.debug("loading RaspiBlitzInfo config from file: {}".format(self.abs_path))
         with open(self.abs_path) as f:
             parser.read_string("[{}]\n".format(DEFAULTSECT) + f.read())
 

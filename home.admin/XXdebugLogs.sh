@@ -6,8 +6,8 @@
 source /home/admin/_version.info
 
 ## get basic info (its OK if not set yet)
-source /home/admin/raspiblitz.info
-source /mnt/hdd/raspiblitz.conf
+source /home/admin/raspiblitz.info 2>/dev/null
+source /mnt/hdd/raspiblitz.conf 2>/dev/null
 
 # for old nodes
 if [ ${#network} -eq 0 ]; then
@@ -71,13 +71,35 @@ echo "sudo tail -n 30 /mnt/hdd/lnd/logs/${network}/${chain}net/lnd.log"
 sudo tail -n 30 /mnt/hdd/lnd/logs/${network}/${chain}net/lnd.log
 echo ""
 
-if [ "${rtlWebinterface}" = "on" ]; then
-  echo "*** LAST 20 RTL LOGS ***"
-  sudo journalctl -u RTL -b --no-pager -n20
+if [ "${touchscreen}" = "1" ]; then
+  echo "*** LAST 20 TOUCHSCREEN LOGS ***"
+  echo "sudo tail -n 20 /home/pi/.cache/lxsession/LXDE-pi/run.log"
+  sudo tail -n 20 /home/pi/.cache/lxsession/LXDE-pi/run.log
+  echo ""
+else
+  echo "- TOUCHSCREEN is OFF by config"
+  echo ""
+fi
+
+if [ "${loop}" = "on" ]; then
+  echo "*** LAST 20 LOOP LOGS ***"
+  echo "sudo journalctl -u loopd -b --no-pager -n20"
+  sudo journalctl -u loopd -b --no-pager -n20
+  echo ""
 else
   echo "- RTL is OFF by config"
+  echo ""
 fi
-echo ""
+
+if [ "${rtlWebinterface}" = "on" ]; then
+  echo "*** LAST 20 RTL LOGS ***"
+  echo "sudo journalctl -u RTL -b --no-pager -n20"
+  sudo journalctl -u RTL -b --no-pager -n20
+  echo ""
+else
+  echo "- RTL is OFF by config"
+  echo ""
+fi
 
 echo "*** HARDWARE TEST RESULTS ***"
 showImproveInfo=0

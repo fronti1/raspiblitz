@@ -5,7 +5,7 @@
 # command info
 if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "-help" ]; then
  echo "config script to switch the Electrum Rust Server on or off"
- echo "bonus.electrs.sh [status|on|off]"
+ echo "bonus.electrs.sh [on|off|status|menu]"
  exit 1
 fi
 
@@ -35,6 +35,7 @@ if [ "$1" = "status" ]; then
   fi
 
   if [ ${serviceRunning} -eq 1 ]; then
+
     # Experimental try to get sync Info
     syncedToBlock=$(sudo journalctl -u electrs --no-pager -n100 | grep "new headers from height" | tail -n 1 | cut -d " " -f 16 | sed 's/[^0-9]*//g')
     blockchainHeight=$(sudo -u bitcoin ${network}-cli getblockchaininfo 2>/dev/null | jq -r '.headers' | sed 's/[^0-9]*//g')
@@ -42,8 +43,37 @@ if [ "$1" = "status" ]; then
       echo "isSynced=1"
     else
       echo "isSynced=0"
+      echo "infoSync='Syncing / Building Index (please wait)'"
     fi
-    echo "infoSync='Syncing / Building Index (please wait)'"
+
+    # check local IPv4 port
+    localIP=$(ip addr | grep 'state UP' -A2 | tail -n1 | awk '{print $2}' | cut -f1 -d'/')
+    echo "localIP='${localIP}'"
+    echo "publicIP='${publicIP}'"
+    echo "portTCP='50001'"
+    localPortRunning=$(sudo -u electrs lsof -i | grep 'IPv4' | grep -c '50001 (LISTEN)')
+    echo "localTCPPortActive=${localPortRunning}"
+    publicPortRunning=$(nc -z -w6 ${publicIP} 50001 2>/dev/null; echo $?)
+    if [ "${publicPortRunning}" == "0" ]; then
+      # OK looks good - but just means that somethingis answering on that port
+      echo "publicTCPPortAnswering=1"
+    else
+      # no answere on that port
+      echo "publicTCPPortAnswering=0"
+    fi
+    echo "portHTTPS='50002'"
+    localPortRunning=$(sudo -u electrs lsof -i | grep 'IPv4' | grep -c '50002 (LISTEN)')
+    echo "localHTTPSPortActive=${localPortRunning}"
+    publicPortRunning=$(nc -z -w6 ${publicIP} 50002 2>/dev/null; echo $?)
+    if [ "${publicPortRunning}" == "0" ]; then
+      # OK looks good - but just means that somethingis answering on that port
+      echo "publicHTTPSPortAnswering=1"
+    else
+      # no answere on that port
+      echo "publicHTTPSPortAnswering=0"
+    fi
+
+
   else
     echo "isSynced=0"
   fi
@@ -51,6 +81,33 @@ if [ "$1" = "status" ]; then
   exit 0
 fi
 
+if [ "$1" = "menu" ]; then
+
+  # get status
+  source <(sudo /home/admin/config.scripts/bonus.electrs.sh status)
+
+  # Options (available without TOR)
+  OPTIONS=( \
+        CONNECT "Connect" \
+        STATUS "Status"
+	)
+
+  CHOICE=$(whiptail --clear --title "Choose Mobile Wallet" --menu "" 13 50 7 "${OPTIONS[@]}" 2>&1 >/dev/tty)
+  clear
+
+  case $CHOICE in
+    CONNECT)
+    echo "connect"
+    read key
+    ;;
+    STATUS)
+    echo "status"
+    read key
+    ;;
+  esac
+
+  exit 0
+fi
 
 # add default value to raspi config if needed
 if ! grep -Eq "^ElectRS=" /mnt/hdd/raspiblitz.conf; then

@@ -24,20 +24,22 @@ if [ "$1" = "1" ] || [ "$1" = "on" ]; then
   
   echo "*** INSTALL LNDMANAGE ***"
   mkdir /home/admin/lndmanage
+  sudo chown admin:admin /home/admin/lndmanage
   cd /home/admin/lndmanage
   # activate virtual environment
-  python -m venv venv
+  python3 -m venv venv
   source /home/admin/lndmanage/venv/bin/activate
   # get dependencies
   sudo apt install -y python3-dev libatlas-base-dev
-  python -m pip install wheel
-  python -m pip install lndmanage==0.8.0.1
+  python3 -m pip install wheel
+  python3 -m pip install lndmanage==0.8.0.1
 
   # setting value in raspi blitz config
   sudo sed -i "s/^lndmanage=.*/lndmanage=on/g" /mnt/hdd/raspiblitz.conf
 
   echo "usage: https://github.com/bitromortac/lndmanage/blob/master/README.md"
   echo "To start type: 'manage' in the command line."
+  echo "Needs at least one channel to start without error."
   echo "To exit the venv - type 'deactivate' and press ENTER"
 
   exit 0

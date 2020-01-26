@@ -59,10 +59,23 @@ else
   echo "Baseimage is not raspbian (${isRaspbian}), skipping the sd card size check." >> ${logFile}
 fi
 
-
 # import config values
 sudo chmod 777 ${configFile}
 source ${configFile}
+
+# check if the system was configured for HDMI and needs switch 
+# keep as one of the first so that user can see video output
+if [ "${lcd2hdmi}" == "on" ]; then
+  echo "RaspiBlitz has config to run with HDMI video outout." >> ${logFile}
+  # check that raspiblitz.info shows that confing script was not run yet
+  switchScriptNotRunYet=$(sudo cat /home/admin/raspiblitz.info | grep -c "lcd2hdmi=off")
+  if [ ${switchScriptNotRunYet} -eq 1 ]; then
+    echo "--> Switching to HDMI video output & rebooting" >> ${logFile}
+    sudo /home/admin/config.scripts/blitz.lcd.sh hdmi on
+  else
+    echo "OK RaspiBlitz was already switched to HDMI output." >> ${logFile}
+  fi
+fi
 
 ##########################
 # BASIC SYSTEM SETTINGS
@@ -70,6 +83,12 @@ source ${configFile}
 
 echo "### BASIC SYSTEM SETTINGS ###" >> ${logFile}
 sudo sed -i "s/^message=.*/message='Setup System .'/g" ${infoFile}
+
+# install litecoin (just if needed)
+if [ "${network}" = "litecoin" ]; then
+  echo "Installing Litecoin ..." >> ${logFile}
+  /home/admin/config.scripts/blitz.litecoin.sh on >> ${logFile}
+fi
 
 # set hostname data
 echo "Setting lightning alias: ${hostname}" >> ${logFile}
@@ -304,7 +323,7 @@ else
     echo "Provisioning LCD rotate - not active" >> ${logFile}
 fi
 
-# TOCHSCREEN
+# TOUCHSCREEN
 if [ "${#touchscreen}" -gt 0 ]; then
     echo "Provisioning Touchscreen - run config script" >> ${logFile}
     sudo sed -i "s/^message=.*/message='Setup Touchscreen'/g" ${infoFile}

@@ -17,6 +17,7 @@ import qrcode
 from PyQt5.QtCore import Qt, QProcess, QThread, pyqtSignal, QCoreApplication, QTimer, QEventLoop
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import QMainWindow, QApplication, QDialog, QDialogButtonBox
+from blitztui.file_logger import setup_logging
 from blitztui.client import ReadOnlyStub, InvoiceStub
 from blitztui.client import check_lnd, check_lnd_channels
 from blitztui.client import check_invoice_paid, create_invoice, get_node_uri
@@ -142,8 +143,8 @@ class AppWindow(QMainWindow):
         self.show()
 
     def start_info_lcd(self, pause=12):
-        # if system has been running for more than 90 seconds then skip pause
-        if self.uptime > 90:
+        # if system has been running for more than 180 seconds then skip pause
+        if self.uptime > 180:
             pause = 0
 
         process = QProcess(self)
@@ -177,6 +178,7 @@ class AppWindow(QMainWindow):
         if not os.path.exists(rb_info_abs_path):
             log.warning("file does not exist: {}".format(rb_info_abs_path))
 
+        log.debug("init lnd.conf")
         lnd_cfg_valid = False
         self.lnd_cfg = LndConfig(lnd_cfg_abs_path)
         try:
@@ -185,6 +187,7 @@ class AppWindow(QMainWindow):
         except Exception as err:
             pass
 
+        log.debug("init raspiblitz.conf")
         rb_cfg_valid = False
         self.rb_cfg = RaspiBlitzConfig(rb_cfg_abs_path)
         try:
@@ -193,6 +196,7 @@ class AppWindow(QMainWindow):
         except Exception as err:
             pass
 
+        log.debug("init raspiblitz.info")
         rb_info_valid = False
         self.rb_info = RaspiBlitzInfo(rb_info_abs_path)
         try:
@@ -238,36 +242,45 @@ class AppWindow(QMainWindow):
             flag.set()
 
     def update_status_lnd(self):
+
         if IS_WIN32_ENV:
             return
 
-        # log.debug("update_status_lnd due: {}".format(self.status_lnd_due))
         if self.status_lnd_due <= self.uptime:
             log.debug("updating status_lnd")
 
-            with ReadOnlyStub(network=self.rb_cfg.network, chain=self.rb_cfg.chain) as stub_readonly:
-                pid_ok, listen_ok, unlocked, synced_to_chain, synced_to_graph = check_lnd(stub_readonly)
-                self.status_lnd_pid_ok = pid_ok
-                self.status_lnd_listen_ok = listen_ok
-                self.status_lnd_unlocked = unlocked
-                self.status_lnd_synced_to_chain = synced_to_chain
-                self.status_lnd_synced_to_graph = synced_to_graph
-                # set next due time
-                self.status_lnd_due = self.uptime + self.status_lnd_interval
+            try:
+                with ReadOnlyStub(network=self.rb_cfg.network, chain=self.rb_cfg.chain) as stub_readonly:
+                    pid_ok, listen_ok, unlocked, synced_to_chain, synced_to_graph = check_lnd(stub_readonly)
+                    self.status_lnd_pid_ok = pid_ok
+                    self.status_lnd_listen_ok = listen_ok
+                    self.status_lnd_unlocked = unlocked
+                    self.status_lnd_synced_to_chain = synced_to_chain
+                    self.status_lnd_synced_to_graph = synced_to_graph
+                    # set next due time
+                    self.status_lnd_due = self.uptime + self.status_lnd_interval
+            except Exception as err:
+                log.info("Exception on update_status_lnd")
+                pass
 
     def update_status_lnd_channels(self):
+
         if IS_WIN32_ENV:
             return
 
-        # log.debug("update_status_lnd_channel due: {}".format(self.status_lnd_channel_due))
+        log.debug("update_status_lnd_channel due: {}".format(self.status_lnd_channel_due))
         if self.status_lnd_channel_due <= self.uptime:
             log.debug("updating status_lnd_channels")
 
-            with ReadOnlyStub(network=self.rb_cfg.network, chain=self.rb_cfg.chain) as stub_readonly:
-                self.status_lnd_channel_total_active, self.status_lnd_channel_total_remote_balance = \
-                    check_lnd_channels(stub_readonly)
-                # set next due time
-                self.status_lnd_channel_due = self.uptime + self.status_lnd_channel_interval
+            try:
+                with ReadOnlyStub(network=self.rb_cfg.network, chain=self.rb_cfg.chain) as stub_readonly:
+                    self.status_lnd_channel_total_active, self.status_lnd_channel_total_remote_balance = \
+                        check_lnd_channels(stub_readonly)
+                    # set next due time
+                    self.status_lnd_channel_due = self.uptime + self.status_lnd_channel_interval
+            except Exception as err:
+                log.info("Exception on update_status_lnd_channels")
+                pass
 
     def update_title_bar(self):
         log.debug("updating: Main Window Title Bar")
@@ -613,11 +626,11 @@ class BeatThread(QThread):
         self.beat_timer.timeout.connect(self.tick)
 
     def tick(self):
-        # log.debug("beat")
+        log.info("beat")
         self.signal.emit(0)
 
     def run(self):
-        log.info("starting beat")
+        log.info("starting beat ..")
         self.beat_timer.start(self.interval)
         loop = QEventLoop()
         loop.exec_()
@@ -649,8 +662,17 @@ Keep on stacking SATs..! :-D"""
                         help="print version", action="version",
                         version=__version__)
 
+    parser.add_argument('-d', '--debug', help="enable debug logging", action="store_true")
+
     # parse args
     args = parser.parse_args()
+
+    if args.debug:
+        setup_logging(log_level="DEBUG")
+    else:
+        setup_logging()
+
+    log.info("Starting BlitzTUI v{}".format(__version__))
 
     # initialize app
     app = QApplication(sys.argv)
