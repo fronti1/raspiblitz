@@ -2,7 +2,7 @@
 
 *Build your own Lightning Node on a RaspberryPi with a nice Display.*
 
-`Version 1.4RC2 with lnd 0.8.2-beta and bitcoin 0.19.1 or litecoin 0.16.3.`
+`Version 1.4RC2 with lnd 0.9.0-beta and bitcoin 0.19.1 or litecoin 0.16.3.`
 
 ![RaspiBlitz](pictures/raspiblitz.jpg)
 
@@ -91,9 +91,9 @@ Your SD-card needs to contain the RaspiBlitz software. You can take the long roa
 
 *This is still an early Release Candidate image - only use if you have time to invest for testing and giving feedback. Everyone else is advised to wait for final version release before doing updates.*
 
-HTTP: https://raspiblitz.com/raspiblitz-v1.4RC2-2020-01-08.img.gz
+HTTP: [https://raspiblitz.com/raspiblitz-v1.4RC3-2020-01-29.img.gz](https://raspiblitz.com/raspiblitz-v1.4RC3-2020-01-29.img.gz)
 
-SHA-256: b4a0daefc9352711200093afa08998d649569e0cb4de90cb39db1f150b4130af
+SHA-256: b0366ca977f9ed53db1eebcc3d9d07b0dcb92437a2699700b72cf0bb3729388f
 
 To see what new features to test and the place to give feedback - see [Milestone v1.4 issues list](https://github.com/rootzoll/raspiblitz/issues?utf8=%E2%9C%93&q=is%3Aissue+milestone%3A%221.4+Release%22+).
 
@@ -756,7 +756,7 @@ If done successfully, simply put the SD card into the RaspiBlitz and power on ag
 
 A ready to use SD card image of the RaspiBlitz for your RaspberryPi is provided as download by us to get everybody started quickly (see above). But if you want to build that image yourself - here is a quick guide:
 
-* Get a fresh Rasbian RASPBIAN STRETCH WITH DESKTOP card image: [DOWNLOAD](https://www.raspberrypi.org/downloads/raspbian/)
+* Get a fresh Rasbian RASPBIAN BUSTER WITH DESKTOP card image: [DOWNLOAD](https://www.raspberrypi.org/downloads/raspbian/)
 * Write image to a SD card: [TUTORIAL](https://www.raspberrypi.org/documentation/installation/installing-images/README.md)
 * Add a file called `ssh` to the root of the SD card when mounted to enable SSH login
 * Start card in Raspi and login per SSH with `ssh pi@[IP-OF-YOUR-RASPI]` password is `raspberry`

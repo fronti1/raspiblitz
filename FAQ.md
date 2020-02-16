@@ -263,7 +263,7 @@ This script will offer you a way to transfer the lnd-rescue file from your lapto
 
 Remember those 24 words you were writing down during the setup? That's your "cipher seed" - now this words are important to recover your wallet. If you don't have them anymore: go back to option "Recover LND data" (see above) and check all possible ways to recover data from the HDD. If you still have the word seed: good, but read the following carefully:
 
-With the word seed you can recover the on-chain funds that LND was managing for you - but it does not contain all the details about the channels you have open - it's mostly the key to your funding wallet. If you were able to close all channels or never opened any channels, then everything should be OK and the best results to recover on-chain funds from wallet seeds are reported to get from installing the Lightning Labs App on your laptop and use the wallet seed (and same wallet passwords): https://github.com/lightninglabs/lightning-app/releases
+With the word seed you can recover the on-chain funds that LND was managing for you - but it does not contain all the details about the channels you have open - it's mostly the key to your funding wallet. If you were able to close all channels or never opened any channels, then everything should be OK and the best results to recover on-chain funds from wallet seeds are reported to get from installing the Lightning Labs App on your laptop and use the wallet seed (and same wallet passwords): https://github.com/lightninglabs/lightning-app/releases Also people reported to be able to recover their on-chain funds with the Zap Desktop wallet (OSX, Win, Linux): https://zap.jackmallers.com/download
 
 If you had open channels it would be best to check if you have also the `channel.backup` file (Static-Channel-Backup feature) that is available since LND 0.6 (RaspiBlitz v1.2) and use that in the process below ... for more details on the `channel.backup` file see [README.md on backups](README.md#backup-for-on-chain---channel-funds).
 
@@ -477,13 +477,13 @@ You can replace the generic case in the shopping lists with a customized 3D prin
 
 ![LightningShell](pictures/lightningshell.png)
 
-https://thecryptocloak.com/product/lightningshell/
+https://www.cryptocloaks.com/product/lightningshell/
 
 Also there is a free & open source case you can 3D print:
 
 ![OpenCase](pictures/opencase.png)
 
-https://thecryptocloak.com/file-factory/
+https://www.cryptocloaks.com/file-factory/
 
 ## Are those "Under-Voltage detected" warnings a problem?
 
@@ -684,13 +684,14 @@ You can backup your channel and wallet data, make a complete fresh RaspiBlitz an
 
 ## Can I run the RaspiBlitz without a display/LCD?
 
-The display is one of the nice features of the RaspiBlitz but the raspberry can run without it. Maybe not all add-on feature could be used to the full extend, but you can get started without the LCD and even plug it on later. Enabling VNC provides a reasonable compromise.
+The display is one of the nice features of the RaspiBlitz but the raspberry can run without it. Maybe not all add-on feature could be used to the full extend, but you can get started without the LCD and even plug it on later.
 
-Normally with the LCD it's easy to see your local IP changes and you can get started quickly. Without it needs a bit more digging thru your network - you can find a good tutorial on that on the RaspiBolt tutorial (origin of RaspiBlitz):
+If you want to use the HDMI output you can place a file called `hdmi` on the `boot` section of the RaspiBlitz sd card ... just connect the sd card to your laptop, create that file and then boot it up in the RaspberryPi.
 
-https://stadicus.github.io/RaspiBolt/raspibolt_20_pi.html#connecting-to-the-network
+If you are already logged in you can use on the console the commands:
 
-*Please Note: Without a LCD-Hat you cannot simply use the HDMI as alternative, because screen signal is routed to the GPIO pins. On how to switch that back manually - see [waveshare documentation](https://www.waveshare.com/wiki/3.5inch_RPi_LCD_(A)).*
+- `hdmi` --> to witch to HDMI
+- `lcd` --> to witch to LCD
 
 ## How do I set up VNC?
 
@@ -833,3 +834,9 @@ There is an experimental script to connect the RaspiBlitz to a UPS over USB cabl
 To turn it on run from terminal: `/home/admin/config.scripts/blitz.ups.sh on apcusb`
 
 If you have other UPS models or ways to connect ... feel free to extend this script.
+
+## How to recover a BTRFS partition?
+
+This articles goes thru the usual options:
+https://ownyourbits.com/2019/03/03/how-to-recover-a-btrfs-partition/
+https://seravo.fi/2015/using-raid-btrfs-recovering-broken-disks

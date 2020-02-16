@@ -49,14 +49,15 @@ RaspiBlitz image to your SD card.
 # Basic Options
 OPTIONS=(HARDWARE "Run Hardwaretest" \
          SOFTWARE "Run Softwaretest (DebugReport)" \
-         BACKUP "Backup your LND data (Rescue-File)" \
+         BACKUP-LND "Backup your LND data (Rescue-File)" \
+         MIGRATION "Migrate Blitz Data to new Hardware" \
          RESET-CHAIN "Delete Blockchain & Re-Download" \
          RESET-LND "Delete LND & start new node/wallet" \
          RESET-HDD "Delete HDD Data but keep Blockchain" \
          RESET-ALL "Delete HDD completly to start fresh"
 	)
 
-CHOICE=$(whiptail --clear --title "Repair Options" --menu "" 12 62 6 "${OPTIONS[@]}" 2>&1 >/dev/tty)
+CHOICE=$(whiptail --clear --title "Repair Options" --menu "" 15 62 8 "${OPTIONS[@]}" 2>&1 >/dev/tty)
 
 clear
 case $CHOICE in
@@ -70,8 +71,14 @@ case $CHOICE in
     read key
     /home/admin/00mainMenu.sh
     ;;
-  BACKUP)
+  BACKUP-LND)
     sudo /home/admin/config.scripts/lnd.rescue.sh backup
+    echo "Press ENTER to return to main menu."
+    read key
+    /home/admin/00mainMenu.sh
+    ;;
+  MIGRATION)
+    sudo /home/admin/config.scripts/blitz.migration.sh "export-gui"
     echo "Press ENTER to return to main menu."
     read key
     /home/admin/00mainMenu.sh

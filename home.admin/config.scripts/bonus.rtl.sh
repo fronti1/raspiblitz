@@ -3,7 +3,7 @@
 # command info
 if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "-help" ]; then
  echo "small config script to switch WebGUI RideTheLightning on or off"
- echo "bonus.rtl.sh [on|off]"
+ echo "bonus.rtl.sh [on|off|menu]"
  exit 1
 fi
 
@@ -16,7 +16,33 @@ if [ ${#network} -eq 0 ]; then
  exit 1
 fi
 
-source /mnt/hdd/raspiblitz.conf
+# show info menu
+if [ "$1" = "menu" ]; then
+
+  # get network info
+  localip=$(ip addr | grep 'state UP' -A2 | tail -n1 | awk '{print $2}' | cut -f1 -d'/')
+  toraddress=$(sudo cat /mnt/hdd/tor/RTL/hostname 2>/dev/null)
+
+  if [ "${runBehindTor}" = "on" ] && [ ${#toraddress} -gt 0 ]; then
+    # Info with TOR
+    /home/admin/config.scripts/blitz.lcd.sh qr "${toraddress}"
+    whiptail --title " Ride The Lightning (RTL) " --msgbox "Open the following URL in your local web browser:
+http://${localip}:3000
+Use your Password B to login.\n
+Hidden Service address for TOR Browser (QR see LCD):\n${toraddress}
+" 12 67
+    /home/admin/config.scripts/blitz.lcd.sh hide
+  else
+    # Info without TOR
+    whiptail --title " Ride The Lightning (RTL) " --msgbox "Open the following URL in your local web browser:
+http://${localip}:3000
+Use your Password B to login.\n
+Activate TOR to access the web interface from outside your local network.
+" 12 57
+  fi
+  echo "please wait ..."
+  exit 0
+fi
 
 # add default value to raspi config if needed
 if ! grep -Eq "^rtlWebinterface=" /mnt/hdd/raspiblitz.conf; then
@@ -32,20 +58,31 @@ if [ "$1" = "1" ] || [ "$1" = "on" ]; then
   echo "*** INSTALL RTL ***"
 
   isInstalled=$(sudo ls /etc/systemd/system/RTL.service 2>/dev/null | grep -c 'RTL.service')
-  if [ ${isInstalled} -eq 0 ]; then
+  if ! [ ${isInstalled} -eq 0 ]; then
+    echo "RTL already installed."
 
+  else
     # check and install NodeJS
     /home/admin/config.scripts/bonus.nodejs.sh
+
+    # check for Python2 (install if missing)
+    # TODO remove Python2 ASAP!
+    echo "*** Check for Python2 ***"
+    /usr/bin/which python2 &>/dev/null
+    if ! [ $? -eq 0 ]; then
+      echo "*** Install Python2 ***"
+      sudo apt-get update
+      sudo apt-get install -y python2
+    fi
 
     # download source code and set to tag release
     echo "*** Get the RTL Source Code ***"
     rm -r /home/admin/RTL 2>/dev/null
     git clone https://github.com/ShahanaFarooqui/RTL.git /home/admin/RTL
     cd /home/admin/RTL
-    # git reset --hard v0.5.4
+    git reset --hard v0.6.3
     # from https://github.com/Ride-The-Lightning/RTL/commits/master
-    git checkout 917feebfa4fb583360c140e817c266649307ef72
-    # check if node_modles exists now
+    # git checkout 917feebfa4fb583360c140e817c266649307ef72
     if [ -d "/home/admin/RTL" ]; then
      echo "OK - RTL code copy looks good"
     else
@@ -59,9 +96,9 @@ if [ "$1" = "1" ] || [ "$1" = "on" ]; then
     # install
     echo "*** Run: npm install ***"
     export NG_CLI_ANALYTICS=false
-    npm install
+    npm install --only=production
     cd ..
-    # check if node_modles exists now
+    # check if node_modules exist now
     if [ -d "/home/admin/RTL/node_modules" ]; then
      echo "OK - RTL install looks good"
     else
@@ -71,13 +108,22 @@ if [ "$1" = "1" ] || [ "$1" = "on" ]; then
     fi
     echo ""
 
+    # now remove Python2 again
+    echo "*** Now remove Python2 again ***"
+    sudo apt-get purge -y python2
+    sudo apt-get autoremove -y
+
     # prepare RTL.conf file
     echo "*** RTL.conf ***"
     cp ./RTL/sample-RTL.conf ./RTL/RTL.conf
+    chmod 600 ./RTL/RTL.conf || exit 1
     sudo sed -i "s/^macroonPath=.*/macroonPath=\/mnt\/hdd\/lnd\/data\/chain\/${network}\/${chain}net/g" ./RTL/RTL.conf
     sudo sed -i "s/^lndConfigPath=.*/lndConfigPath=\/mnt\/hdd\/lnd\/lnd.conf/g" ./RTL/RTL.conf
-    sudo sed -i "s/^nodeAuthType=.*/nodeAuthType=DEFAULT/g" ./RTL/RTL.conf
-    sudo sed -i "s/^rtlPass=.*/rtlPass=/g" ./RTL/RTL.conf
+    sudo sed -i "s/^nodeAuthType=.*/nodeAuthType=CUSTOM/g" ./RTL/RTL.conf
+    # getting ready for the phasing out of the "DEFAULT" auth type
+    # will need to change blitz.setpassword.sh too
+    PASSWORD_B=$(sudo cat /mnt/hdd/${network}/${network}.conf | grep rpcpassword | cut -c 13-)
+    sudo sed -i "s/^rtlPass=.*/rtlPass=$PASSWORD_B/g" ./RTL/RTL.conf
     echo ""
 
     # open firewall
@@ -93,8 +139,6 @@ if [ "$1" = "1" ] || [ "$1" = "on" ]; then
     sudo systemctl enable RTL
     echo "OK - the RTL service is now enabled"
 
-  else 
-    echo "RTL already installed."
   fi
   
   # setting value in raspi blitz config
@@ -105,23 +149,6 @@ if [ "$1" = "1" ] || [ "$1" = "on" ]; then
     # correct old Hidden Service with port
     sudo sed -i "s/^HiddenServicePort 3000 127.0.0.1:3000/HiddenServicePort 80 127.0.0.1:3000/g" /etc/tor/torrc
     /home/admin/config.scripts/internet.hiddenservice.sh RTL 80 3000
-
-    TOR_ADDRESS=$(sudo cat /mnt/hdd/tor/RTL/hostname)
-    if [ -z "$TOR_ADDRESS" ]; then
-      echo "Waiting for the Hidden Service"
-      sleep 10
-      TOR_ADDRESS=$(sudo cat /mnt/hdd/tor/RTL/hostname)
-        if [ -z "$TOR_ADDRESS" ]; then
-          echo " FAIL - The Hidden Service address could not be found - Tor error?"
-          exit 1
-        fi
-    fi    
-    echo ""
-    echo "***"
-    echo "The Tor Hidden Service address for RTL is:"
-    echo "$TOR_ADDRESS"
-    echo "***"
-    echo "" 
   fi
   exit 0
 fi

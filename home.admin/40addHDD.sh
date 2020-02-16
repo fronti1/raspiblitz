@@ -89,6 +89,8 @@ else
   echo "network=${network}" >> $configFile
   echo "chain=${chain}" >> $configFile
   echo "hostname=${hostname}" >> $configFile
+  echo "lcd2hdmi=${lcd2hdmi}" >> $configFile
+  echo "lcdrotate=1" >> $configFile
 
   # try to determine publicIP and if not possible use localIP as placeholder 
   # https://github.com/rootzoll/raspiblitz/issues/312#issuecomment-462675101

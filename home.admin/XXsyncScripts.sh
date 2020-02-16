@@ -7,6 +7,7 @@
 # https://github.com/rootzoll/raspiblitz/blob/master/FAQ.md#how-to-update-my-raspiblitz-after-version-098
 
 cd /home/admin/raspiblitz
+source /mnt/hdd/raspiblitz.conf 2>/dev/null
 
 # change branch if set as parameter
 clean=0
@@ -37,7 +38,9 @@ fi
 
 origin=$(git remote -v | grep 'origin' | tail -n1)
 
-echo ""
+checkSumBlitzTUIBefore=$(find /home/admin/raspiblitz/home.admin/BlitzTUI -type f -exec md5sum {} \; | md5sum)
+
+echo
 echo "*** SYNCING SHELL SCRIPTS WITH GITHUB ***"
 echo "This is for developing on your RaspiBlitz."
 echo "THIS IS NOT THE REGULAR UPDATE MECHANISM"
@@ -60,14 +63,32 @@ else
   echo "use parameter '-clean' if you want that next time"
   echo "******************************************"
 fi
-echo "COPYING from GIT-Directory to /home/admin/ .."
+
+echo "COPYING from GIT-Directory to /home/admin/"
 sudo -u admin cp -r -f /home/admin/raspiblitz/home.admin/*.* /home/admin
+echo ".."
 sudo -u admin cp -r -f /home/admin/raspiblitz/home.admin/assets/*.* /home/admin/assets
+echo ".."
 sudo -u admin chmod +x /home/admin/*.sh
+echo ".."
 sudo -u admin chmod +x /home/admin/*.py
+echo ".."
 sudo -u admin chmod +x /home/admin/config.scripts/*.sh
+echo ".."
 sudo -u admin chmod +x /home/admin/config.scripts/*.py
+echo "******************************************"
+if [ "${touchscreen}" = "1" ]; then
+  echo "Checking if the content of BlitzTUI changed .."
+  checkSumBlitzTUIAfter=$(find /home/admin/raspiblitz/home.admin/BlitzTUI -type f -exec md5sum {} \; | md5sum)
+  echo "checkSumBlitzTUIBefore = ${checkSumBlitzTUIBefore}"
+  echo "checkSumBlitzTUIAfter  = ${checkSumBlitzTUIAfter}"
+  if [ "${checkSumBlitzTUIBefore}" = "${checkSumBlitzTUIAfter}" ]; then
+    echo "BlitzTUI did not changed."
+  else
+    echo "BlitzTUI changed --> UPDATING TOUCHSCREEN INSTALL ..."
+    sudo ./config.scripts/blitz.touchscreen.sh update
+  fi
+fi
 echo "******************************************"
 echo "OK - shell scripts and assests are synced"
 echo "Reboot recommended"
-echo ""

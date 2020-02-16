@@ -83,20 +83,6 @@ else
   echo "OK running ${baseImage}"
 fi
 
-# setting static DNS server
-# comment this block out if you are sure that your DNS conf works reliable
-# see https://github.com/rootzoll/raspiblitz/issues/322#issuecomment-466733550
-dnsconfFile="/etc/dhcpcd.conf"
-if [ "${baseImage}" = "ubuntu" ]; then
-  dnsconfFile="/etc/dhcp/dhcpd.conf"
-fi
-# comment out any static dns entry if one is active
-sudo sed -i "s/^static domain_name_servers=.*/#static domain_name_servers=/g" "$dnsconfFile"
-# add new dns config to conf file
-echo "static domain_name_servers=1.1.1.1 8.8.8.8" | sudo tee -a "$dnsconfFile"
-# reload to activate for following network operations
-systemctl daemon-reload
-
 if [ "${baseImage}" = "raspbian" ] || [ "${baseImage}" = "dietpi" ] ; then
   # fixing locales for build
   # https://github.com/rootzoll/raspiblitz/issues/138
@@ -108,9 +94,9 @@ if [ "${baseImage}" = "raspbian" ] || [ "${baseImage}" = "dietpi" ] ; then
   sudo sed -i "s/^# en_US.UTF-8 UTF-8.*/en_US.UTF-8 UTF-8/g" /etc/locale.gen
   sudo sed -i "s/^# en_US ISO-8859-1.*/en_US ISO-8859-1/g" /etc/locale.gen
   sudo locale-gen
-  export LANGUAGE=en_GB.UTF-8
-  export LANG=en_GB.UTF-8
-  export LC_ALL=en_GB.UTF-8
+  export LANGUAGE=en_US.UTF-8
+  export LANG=en_US.UTF-8
+  export LC_ALL=en_US.UTF-8
 
   # https://github.com/rootzoll/raspiblitz/issues/684
   sudo sed -i "s/^    SendEnv LANG LC.*/#   SendEnv LANG LC_*/g" /etc/ssh/ssh_config
@@ -469,42 +455,10 @@ if [ ${installed} -lt 1 ]; then
   exit 1
 fi
 
-if [ "${baseImage}" = "raspbian" ]; then
-  echo ""
-  echo "*** LITECOIN ***"
-  # based on https://medium.com/@jason.hcwong/litecoin-lightning-with-raspberry-pi-3-c3b931a82347
-
-  # set version (change if update is available)
-  litecoinVersion="0.17.1"
-  litecoinSHA256="7e6f5a1f0b190de01aa20ecf5c5a2cc5a64eb7ede0806bcba983bcd803324d8a"
-  cd /home/admin/download
-
-  # download
-  binaryName="litecoin-${litecoinVersion}-arm-linux-gnueabihf.tar.gz"
-  sudo -u admin wget https://download.litecoin.org/litecoin-${litecoinVersion}/linux/${binaryName}
-
-  # check download
-  binaryChecksum=$(sha256sum ${binaryName} | cut -d " " -f1)
-  if [ "${binaryChecksum}" != "${litecoinSHA256}" ]; then
-    echo "!!! FAIL !!! Downloaded LITECOIN BINARY not matching SHA256 checksum: ${litecoinSHA256}"
-    exit 1
-  fi
-
-  # install
-  sudo -u admin tar -xvf ${binaryName}
-  sudo install -m 0755 -o root -g root -t /usr/local/bin litecoin-${litecoinVersion}/bin/*
-  installed=$(sudo -u admin litecoind --version | grep "${litecoinVersion}" -c)
-  if [ ${installed} -lt 1 ]; then
-    echo ""
-    echo "!!! BUILD FAILED --> Was not able to install litecoind version(${litecoinVersion})"
-    exit 1
-  fi
-fi
-
 # "*** LND ***"
 ## based on https://github.com/Stadicus/guides/blob/master/raspibolt/raspibolt_40_lnd.md#lightning-lnd
 ## see LND releases: https://github.com/lightningnetwork/lnd/releases
-lndVersion="0.8.2-beta"
+lndVersion="0.9.0-beta"
 
 # olaoluwa
 PGPpkeys="https://keybase.io/roasbeef/pgp_keys.asc"
@@ -512,6 +466,9 @@ PGPcheck="9769140D255C759B1EB77B46A96387A57CAAE94D"
 # bitconner
 #PGPpkeys="https://keybase.io/bitconner/pgp_keys.asc"
 #PGPcheck="9C8D61868A7C492003B2744EE7D737B67FA592C7"
+# Joost Jager
+#PGPpkeys="https://keybase.io/joostjager/pgp_keys.asc"
+#PGPcheck="D146D0F68939436268FA9A130E26BB61B76C4D3A"
 
 # get LND resources
 cd /home/admin/download
@@ -632,9 +589,8 @@ sudo apt-get -y install cpulimit
 sudo apt-get -y install screen
 
 # for multiple (detachable/background) sessions when using SSH
+# https://github.com/rootzoll/raspiblitz/issues/990
 sudo apt-get -y install tmux
-cd /home/admin
-sudo -u admin wget https://github.com/gpakosz/.tmux/raw/01c91ba5231eb2e7b32cc2f47ac9022efae87962/.tmux.conf
 
 # optimization for torrent download
 sudo bash -c "echo 'net.core.rmem_max = 4194304' >> /etc/sysctl.conf"
@@ -687,12 +643,14 @@ if [ "${baseImage}" = "raspbian" ] || [ "${baseImage}" = "armbian" ] || [ "${bas
 fi
 if [ "${baseImage}" = "raspbian" ]; then
   # create /home/admin/setup.sh - which will get executed after reboot by autologin pi user
-  cat > /home/admin/setup.sh <<EOF
+  cat > /tmp/setup.sh <<EOF
 
   # make LCD screen rotation correct
   sudo sed --in-place -i "57s/.*/dtoverlay=tft35a:rotate=270/" /boot/config.txt
 
 EOF
+  sudo cp /tmp/setup.sh /home/admin/setup.sh
+  sudo chown admin.admin /home/admin/setup.sh
   sudo chmod +x /home/admin/setup.sh
 fi
 
@@ -706,10 +664,26 @@ fi
 
 echo ""
 echo "*** HARDENING ***"
-# based on https://github.com/Stadicus/guides/blob/master/raspibolt/raspibolt_20_pi.md#hardening-your-pi
+# based on https://stadicus.github.io/RaspiBolt/raspibolt_21_security.html
 
 # fail2ban (no config required)
 sudo apt-get install -y --no-install-recommends python3-systemd fail2ban
+
+if [ "${baseImage}" = "raspbian" ]; then
+  echo ""
+  echo "*** DISABLE BLUETOOTH ***"
+
+  # disable bluetooth module
+  sudo sh -c "echo 'dtoverlay=pi3-disable-bt' >> /boot/config.txt"
+  sudo sh -c "echo 'dtoverlay=disable-bt' >> /boot/config.txt"
+
+  # remove bluetooth services
+  sudo systemctl disable bluetooth.service
+  sudo systemctl disable hciuart.service
+
+  # remove bluetooth packages
+  sudo apt remove -y --purge pi-bluetooth bluez bluez-firmware
+fi
 
 # *** BOOTSTRAP ***
 # see background README for details
@@ -737,12 +711,12 @@ echo "*** LCD DRIVER ***"
 
 echo "--> Downloading LCD Driver from Github"
 cd /home/admin/
-git clone https://github.com/goodtft/LCD-show.git
-sudo chmod -R 755 LCD-show
-sudo chown -R admin:admin LCD-show
+sudo -u admin git clone https://github.com/goodtft/LCD-show.git
+sudo -u admin chmod -R 755 LCD-show
+sudo -u admin chown -R admin:admin LCD-show
 cd LCD-show/
 # set comit hard to a8de38f (7 Nov 2019) for security
-sudo git reset --hard a8de38f41586e153a8e03adcf7708c8b5974ffc8
+sudo -u admin git reset --hard a8de38f41586e153a8e03adcf7708c8b5974ffc8
 
 # install xinput calibrator package
   echo "--> install xinput calibrator package"
@@ -762,7 +736,6 @@ if [ "${baseImage}" = "dietpi" ]; then
   sudo cp ./boot/config-35.txt /DietPi/config.txt
   # make LCD screen rotation correct
   sudo sed -i "s/dtoverlay=tft35a/dtoverlay=tft35a:rotate=270/" /DietPi/config.txt
-
 fi
 
 # *** RASPIBLITZ IMAGE READY ***
